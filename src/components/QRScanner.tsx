@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, QrCode, User, Calendar, MapPin, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, QrCode, User, Calendar, MapPin, CheckCircle, XCircle, Camera, CameraOff } from "lucide-react";
+import QrScanner from 'react-qr-scanner';
 
 interface QRScannerProps {
   onBack: () => void;
@@ -36,7 +37,37 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
   const [scanInput, setScanInput] = useState('');
   const [scannedTicket, setScannedTicket] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraError, setCameraError] = useState<string>('');
   const { toast } = useToast();
+
+  const processTicketScan = (ticketData: string) => {
+    console.log("Processing ticket:", ticketData);
+
+    // Extract ticket ID from QR code or use direct input
+    const ticketId = ticketData.includes('TKT-') ? 
+      ticketData.split('-')[0] + '-' + ticketData.split('-')[1] : 
+      ticketData;
+
+    // Look up ticket in mock database
+    const ticket = mockTickets.find(t => t.ticketId === ticketId || ticketData.includes(t.ticketId));
+    
+    if (ticket) {
+      setScannedTicket(ticket);
+      setShowCamera(false);
+      toast({
+        title: "Ticket Found",
+        description: `Ticket for ${ticket.buyer.name} verified`,
+      });
+    } else {
+      toast({
+        title: "Invalid Ticket",
+        description: "Ticket not found or invalid QR code",
+        variant: "destructive"
+      });
+      setScannedTicket(null);
+    }
+  };
 
   const handleScan = async () => {
     if (!scanInput.trim()) {
@@ -49,40 +80,28 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
     }
 
     setIsScanning(true);
-    console.log("Scanning ticket:", scanInput);
 
     // Simulate scanning delay
     setTimeout(() => {
-      // Extract ticket ID from QR code or use direct input
-      const ticketId = scanInput.includes('TKT-') ? 
-        scanInput.split('-')[0] + '-' + scanInput.split('-')[1] : 
-        scanInput;
-
-      // Look up ticket in mock database
-      const ticket = mockTickets.find(t => t.ticketId === ticketId || scanInput.includes(t.ticketId));
-      
-      if (ticket) {
-        setScannedTicket(ticket);
-        toast({
-          title: "Ticket Found",
-          description: `Ticket for ${ticket.buyer.name} verified`,
-        });
-      } else {
-        toast({
-          title: "Invalid Ticket",
-          description: "Ticket not found or invalid QR code",
-          variant: "destructive"
-        });
-        setScannedTicket(null);
-      }
-      
+      processTicketScan(scanInput);
       setIsScanning(false);
     }, 1500);
   };
 
+  const handleQrScan = (data: any) => {
+    if (data) {
+      processTicketScan(data.text || data);
+    }
+  };
+
+  const handleQrError = (err: any) => {
+    console.error('QR Scanner error:', err);
+    setCameraError('Failed to access camera. Please check permissions.');
+    setShowCamera(false);
+  };
+
   const handleCheckIn = () => {
     if (scannedTicket) {
-      // Update ticket status (in real app, this would call backend)
       const updatedTicket = { ...scannedTicket, isCheckedIn: true };
       setScannedTicket(updatedTicket);
       
@@ -96,6 +115,13 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
   const handleNewScan = () => {
     setScanInput('');
     setScannedTicket(null);
+    setShowCamera(false);
+    setCameraError('');
+  };
+
+  const toggleCamera = () => {
+    setShowCamera(!showCamera);
+    setCameraError('');
   };
 
   return (
@@ -120,10 +146,53 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Scanner Input */}
+          {/* Scanner Options */}
+          <div className="flex gap-2">
+            <Button
+              onClick={toggleCamera}
+              variant={showCamera ? "default" : "outline"}
+              className="flex items-center gap-2"
+            >
+              {showCamera ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+              {showCamera ? 'Close Camera' : 'Open Camera'}
+            </Button>
+          </div>
+
+          {/* Camera Scanner */}
+          {showCamera && (
+            <Card className="p-4">
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h3 className="font-semibold mb-2">Camera Scanner</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Point your camera at the QR code on the ticket
+                  </p>
+                </div>
+                
+                <div className="flex justify-center">
+                  <div className="w-64 h-64 border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
+                    <QrScanner
+                      delay={300}
+                      style={{ width: '100%', height: '100%' }}
+                      onError={handleQrError}
+                      onScan={handleQrScan}
+                    />
+                  </div>
+                </div>
+
+                {cameraError && (
+                  <div className="text-center text-red-600 text-sm">
+                    {cameraError}
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Manual Input */}
           <div className="space-y-4">
             <div>
-              <Label htmlFor="scanInput">Enter Ticket ID or QR Code Data</Label>
+              <Label htmlFor="scanInput">Or Enter Ticket ID Manually</Label>
               <Input
                 id="scanInput"
                 value={scanInput}
@@ -157,9 +226,10 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
           <div className="bg-blue-50 p-4 rounded-lg">
             <h4 className="font-semibold text-blue-800 mb-2">Demo Instructions:</h4>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Try scanning "TKT-001" for a valid ticket</li>
-              <li>• Try scanning "TKT-002" for an already checked-in ticket</li>
-              <li>• Try scanning "TKT-999" for an invalid ticket</li>
+              <li>• Click "Open Camera" to use your device camera</li>
+              <li>• Try manually entering "TKT-001" for a valid ticket</li>
+              <li>• Try manually entering "TKT-002" for an already checked-in ticket</li>
+              <li>• Try manually entering "TKT-999" for an invalid ticket</li>
             </ul>
           </div>
 

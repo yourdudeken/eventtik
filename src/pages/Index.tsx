@@ -1,51 +1,50 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EventCard } from "../components/EventCard";
 import { TicketPurchase } from "../components/TicketPurchase";
 import { DigitalTicket } from "../components/DigitalTicket";
 import { QRScanner } from "../components/QRScanner";
+import { CreatorDashboard } from "../components/CreatorDashboard";
+import { AuthModal } from "../components/AuthModal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { QrCode, Ticket, Users } from "lucide-react";
-
-// Mock event data
-const mockEvents = [
-  {
-    id: "event1",
-    title: "Tech Conference 2024",
-    date: "2024-07-15",
-    time: "09:00",
-    venue: "Nairobi Convention Center",
-    price: 2500,
-    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
-    description: "Join industry leaders for the biggest tech conference in East Africa"
-  },
-  {
-    id: "event2", 
-    title: "Music Festival",
-    date: "2024-07-20",
-    time: "18:00",
-    venue: "Uhuru Gardens",
-    price: 1500,
-    image: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400",
-    description: "Live performances from top local and international artists"
-  },
-  {
-    id: "event3",
-    title: "Food & Wine Expo",
-    date: "2024-07-25", 
-    time: "12:00",
-    venue: "Sarit Center",
-    price: 800,
-    image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400",
-    description: "Taste the finest cuisine and wines from around the world"
-  }
-];
+import { QrCode, Ticket, Users, Plus, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState<'events' | 'purchase' | 'ticket' | 'scanner'>('events');
+  const [currentView, setCurrentView] = useState<'events' | 'purchase' | 'ticket' | 'scanner' | 'creator'>('events');
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [purchasedTicket, setPurchasedTicket] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Check authentication status
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch events from Supabase
+  const { data: events = [], isLoading, refetch } = useQuery({
+    queryKey: ['events'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
 
   const handleEventSelect = (event: any) => {
     setSelectedEvent(event);
@@ -61,6 +60,19 @@ const Index = () => {
     setCurrentView('events');
     setSelectedEvent(null);
     setPurchasedTicket(null);
+  };
+
+  const handleCreatorAccess = () => {
+    if (user) {
+      setCurrentView('creator');
+    } else {
+      setShowAuthModal(true);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    setCurrentView('creator');
   };
 
   return (
@@ -82,6 +94,14 @@ const Index = () => {
                 Events
               </Button>
               <Button
+                variant={currentView === 'creator' ? 'default' : 'outline'}
+                size="sm"
+                onClick={handleCreatorAccess}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Create Event
+              </Button>
+              <Button
                 variant={currentView === 'scanner' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setCurrentView('scanner')}
@@ -89,6 +109,16 @@ const Index = () => {
                 <QrCode className="h-4 w-4 mr-1" />
                 Scan
               </Button>
+              {user && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => supabase.auth.signOut()}
+                >
+                  <User className="h-4 w-4 mr-1" />
+                  Sign Out
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -107,15 +137,41 @@ const Index = () => {
               </p>
             </div>
             
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {mockEvents.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  onSelect={handleEventSelect}
-                />
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading events...</p>
+              </div>
+            ) : events.length === 0 ? (
+              <div className="text-center py-12">
+                <Ticket className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No Events Yet</h3>
+                <p className="text-gray-600 mb-4">Be the first to create an event!</p>
+                <Button onClick={handleCreatorAccess}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Event
+                </Button>
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {events.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={{
+                      id: event.id,
+                      title: event.title,
+                      date: event.date,
+                      time: event.time,
+                      venue: event.venue,
+                      price: Number(event.price),
+                      image: event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
+                      description: event.description || ""
+                    }}
+                    onSelect={handleEventSelect}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Stats Section */}
             <Card className="mt-12 p-6 bg-gradient-to-r from-blue-600 to-teal-600 text-white">
@@ -125,7 +181,7 @@ const Index = () => {
                   <div className="text-blue-100">Tickets Sold</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">200+</div>
+                  <div className="text-2xl font-bold">{events.length}</div>
                   <div className="text-blue-100">Events</div>
                 </div>
                 <div>
@@ -155,7 +211,21 @@ const Index = () => {
         {currentView === 'scanner' && (
           <QRScanner onBack={() => setCurrentView('events')} />
         )}
+
+        {currentView === 'creator' && user && (
+          <CreatorDashboard 
+            onBack={() => setCurrentView('events')}
+            onEventCreated={() => refetch()}
+          />
+        )}
       </div>
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
     </div>
   );
 };

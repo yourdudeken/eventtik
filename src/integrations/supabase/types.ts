@@ -9,7 +9,104 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      events: {
+        Row: {
+          created_at: string
+          creator_id: string
+          date: string
+          description: string | null
+          id: string
+          image_url: string | null
+          price: number
+          time: string
+          title: string
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          date: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          price?: number
+          time: string
+          title: string
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          date?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          price?: number
+          time?: string
+          title?: string
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: []
+      }
+      tickets: {
+        Row: {
+          buyer_email: string | null
+          buyer_name: string
+          buyer_phone: string | null
+          checked_in: boolean | null
+          checked_in_at: string | null
+          created_at: string
+          event_id: string
+          id: string
+          payment_reference: string | null
+          payment_status: string
+          qr_code: string | null
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          buyer_email?: string | null
+          buyer_name: string
+          buyer_phone?: string | null
+          checked_in?: boolean | null
+          checked_in_at?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          payment_reference?: string | null
+          payment_status?: string
+          qr_code?: string | null
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          buyer_email?: string | null
+          buyer_name?: string
+          buyer_phone?: string | null
+          checked_in?: boolean | null
+          checked_in_at?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          payment_reference?: string | null
+          payment_status?: string
+          qr_code?: string | null
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

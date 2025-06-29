@@ -6,9 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Users, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EditEventForm } from "./EditEventForm";
+import { useState } from "react";
 
 export const EventsList = () => {
   const { toast } = useToast();
+  const [editingEvent, setEditingEvent] = useState<any>(null);
 
   const { data: events = [], isLoading, refetch } = useQuery({
     queryKey: ['creator-events'],
@@ -53,6 +56,21 @@ export const EventsList = () => {
     }
   };
 
+  const handleEditSuccess = () => {
+    setEditingEvent(null);
+    refetch();
+  };
+
+  if (editingEvent) {
+    return (
+      <EditEventForm
+        event={editingEvent}
+        onSuccess={handleEditSuccess}
+        onCancel={() => setEditingEvent(null)}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -85,7 +103,11 @@ export const EventsList = () => {
                 <p className="text-sm text-gray-600 mt-1">{event.description}</p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setEditingEvent(event)}
+                >
                   <Edit className="h-4 w-4" />
                 </Button>
                 <Button 

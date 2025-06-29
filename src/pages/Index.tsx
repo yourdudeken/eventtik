@@ -8,7 +8,7 @@ import { CreatorDashboard } from "../components/CreatorDashboard";
 import { AuthModal } from "../components/AuthModal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { QrCode, Ticket, Users, Plus, User } from "lucide-react";
+import { QrCode, Ticket, Users, Plus, User, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -47,6 +47,7 @@ const Index = () => {
   });
 
   const handleEventSelect = (event: any) => {
+    // No authentication required for ticket purchase
     setSelectedEvent(event);
     setCurrentView('purchase');
   };
@@ -70,9 +71,22 @@ const Index = () => {
     }
   };
 
+  const handleScannerAccess = () => {
+    // Always require authentication for scanner access
+    if (user) {
+      setCurrentView('scanner');
+    } else {
+      setShowAuthModal(true);
+    }
+  };
+
   const handleAuthSuccess = () => {
     setShowAuthModal(false);
-    setCurrentView('creator');
+    if (currentView === 'scanner') {
+      setCurrentView('scanner');
+    } else {
+      setCurrentView('creator');
+    }
   };
 
   return (
@@ -91,12 +105,14 @@ const Index = () => {
                 size="sm"
                 onClick={() => setCurrentView('events')}
               >
-                Events
+                <ShoppingCart className="h-4 w-4 mr-1" />
+                Buy Tickets
               </Button>
               <Button
                 variant={currentView === 'creator' ? 'default' : 'outline'}
                 size="sm"
                 onClick={handleCreatorAccess}
+                title="Account required to create events"
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Create Event
@@ -104,10 +120,11 @@ const Index = () => {
               <Button
                 variant={currentView === 'scanner' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setCurrentView('scanner')}
+                onClick={handleScannerAccess}
+                title="Staff login required"
               >
                 <QrCode className="h-4 w-4 mr-1" />
-                Scan
+                Staff Scanner
               </Button>
               {user && (
                 <Button

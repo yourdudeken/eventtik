@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Calendar, MapPin, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Loader2, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TicketPurchaseProps {
@@ -153,14 +153,26 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
 
   return (
     <div className="max-w-2xl mx-auto">
-      <Button
-        variant="ghost"
-        onClick={onBack}
-        className="mb-4"
-      >
+      <Button variant="ghost" onClick={onBack} className="mb-4">
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Events
       </Button>
+
+      {/* No Account Required Notice */}
+      <Card className="mb-6 border-blue-200 bg-blue-50">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-blue-900 mb-1">No Account Required</h3>
+              <p className="text-sm text-blue-800">
+                You can purchase tickets instantly without creating an account. 
+                Just fill in your details below and pay with M-Pesa to get your digital ticket.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Event Details */}

@@ -1,1 +1,14 @@
+
 project_id = "lwoawzxzddxjdkxnzjjg"
+
+[functions.mpesa-payment]
+verify_jwt = false
+
+[functions.mpesa-callback]
+verify_jwt = false
+
+[functions.send-ticket-email]
+verify_jwt = false
+
+[functions.generate-ticket-pdf]
+verify_jwt = false

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,30 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, QrCode, User, Calendar, MapPin, CheckCircle, XCircle, Camera, CameraOff } from "lucide-react";
 import QrScanner from 'react-qr-scanner';
+import { supabase } from "@/integrations/supabase/client";
 
 interface QRScannerProps {
   onBack: () => void;
 }
-
-// Mock ticket database
-const mockTickets = [
-  {
-    ticketId: 'TKT-001',
-    userId: 'USR-001',
-    eventId: 'event1',
-    isCheckedIn: false,
-    buyer: { name: 'John Doe', email: 'john@example.com', phone: '0712345678' },
-    event: { title: 'Tech Conference 2024', date: '2024-07-15', venue: 'Nairobi Convention Center' }
-  },
-  {
-    ticketId: 'TKT-002', 
-    userId: 'USR-002',
-    eventId: 'event2',
-    isCheckedIn: true,
-    buyer: { name: 'Jane Smith', email: 'jane@example.com', phone: '0798765432' },
-    event: { title: 'Music Festival', date: '2024-07-20', venue: 'Uhuru Gardens' }
-  }
-];
 
 export const QRScanner = ({ onBack }: QRScannerProps) => {
   const [scanInput, setScanInput] = useState('');
@@ -39,30 +20,129 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('');
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const { toast } = useToast();
 
-  const processTicketScan = (ticketData: string) => {
+  useEffect(() => {
+    checkUserRole();
+  }, []);
+
+  const checkUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to access the scanner",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (roleData && (roleData.role === 'admin' || roleData.role === 'staff')) {
+        setUserRole(roleData.role);
+        setIsAuthorized(true);
+      } else {
+        toast({
+          title: "Access Denied",
+          description: "Only admin and staff can access the QR scanner",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Role check error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to verify permissions",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const processTicketScan = async (ticketData: string) => {
     console.log("Processing ticket:", ticketData);
 
-    // Extract ticket ID from QR code or use direct input
-    const ticketId = ticketData.includes('TKT-') ? 
-      ticketData.split('-')[0] + '-' + ticketData.split('-')[1] : 
-      ticketData;
+    try {
+      // Extract ticket ID from QR code or use direct input
+      const ticketId = ticketData.includes('TKT-') ? 
+        ticketData.split('-')[0] + '-' + ticketData.split('-')[1] : 
+        ticketData;
 
-    // Look up ticket in mock database
-    const ticket = mockTickets.find(t => t.ticketId === ticketId || ticketData.includes(t.ticketId));
-    
-    if (ticket) {
-      setScannedTicket(ticket);
+      // Look up ticket in database
+      const { data: ticket, error } = await supabase
+        .from('tickets')
+        .select(`
+          *,
+          events (
+            id,
+            title,
+            date,
+            time,
+            venue
+          )
+        `)
+        .eq('ticket_id', ticketId)
+        .single();
+      
+      if (error || !ticket) {
+        toast({
+          title: "Invalid Ticket",
+          description: "Ticket not found or invalid QR code",
+          variant: "destructive"
+        });
+        setScannedTicket(null);
+        return;
+      }
+
+      if (ticket.payment_status !== 'completed') {
+        toast({
+          title: "Invalid Ticket",
+          description: "Ticket payment not completed",
+          variant: "destructive"
+        });
+        setScannedTicket(null);
+        return;
+      }
+
+      const formattedTicket = {
+        ticketId: ticket.ticket_id,
+        userId: ticket.user_id,
+        eventId: ticket.event_id,
+        isCheckedIn: ticket.checked_in,
+        checkedInAt: ticket.checked_in_at,
+        buyer: {
+          name: ticket.buyer_name,
+          email: ticket.buyer_email,
+          phone: ticket.buyer_phone
+        },
+        event: {
+          title: ticket.events?.title,
+          date: ticket.events?.date,
+          time: ticket.events?.time,
+          venue: ticket.events?.venue
+        }
+      };
+
+      setScannedTicket(formattedTicket);
       setShowCamera(false);
+      
       toast({
         title: "Ticket Found",
-        description: `Ticket for ${ticket.buyer.name} verified`,
+        description: `Ticket for ${ticket.buyer_name} verified`,
       });
-    } else {
+
+    } catch (error) {
+      console.error('Ticket processing error:', error);
       toast({
-        title: "Invalid Ticket",
-        description: "Ticket not found or invalid QR code",
+        title: "Error",
+        description: "Failed to process ticket",
         variant: "destructive"
       });
       setScannedTicket(null);
@@ -100,14 +180,40 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
     setShowCamera(false);
   };
 
-  const handleCheckIn = () => {
-    if (scannedTicket) {
-      const updatedTicket = { ...scannedTicket, isCheckedIn: true };
+  const handleCheckIn = async () => {
+    if (!scannedTicket || !isAuthorized) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('tickets')
+        .update({
+          checked_in: true,
+          checked_in_at: new Date().toISOString()
+        })
+        .eq('ticket_id', scannedTicket.ticketId);
+
+      if (error) throw error;
+
+      const updatedTicket = { 
+        ...scannedTicket, 
+        isCheckedIn: true,
+        checkedInAt: new Date().toISOString()
+      };
       setScannedTicket(updatedTicket);
       
       toast({
         title: "Check-in Successful",
         description: `${scannedTicket.buyer.name} has been checked in`,
+      });
+    } catch (error: any) {
+      console.error('Check-in error:', error);
+      toast({
+        title: "Check-in Failed",
+        description: error.message || "Failed to check in attendee",
+        variant: "destructive"
       });
     }
   };
@@ -123,6 +229,31 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
     setShowCamera(!showCamera);
     setCameraError('');
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          className="mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Events
+        </Button>
+
+        <Card>
+          <CardContent className="text-center py-12">
+            <XCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h3>
+            <p className="text-gray-600">
+              Only admin and staff members can access the QR scanner for check-ins.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -140,6 +271,9 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
           <CardTitle className="flex items-center gap-2">
             <QrCode className="h-6 w-6" />
             QR Code Scanner
+            <Badge variant="secondary" className="ml-auto">
+              {userRole === 'admin' ? 'Admin' : 'Staff'}
+            </Badge>
           </CardTitle>
           <p className="text-sm text-gray-600">
             Scan ticket QR codes to verify and check-in attendees
@@ -222,17 +356,6 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
             </div>
           </div>
 
-          {/* Demo Instructions */}
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-semibold text-blue-800 mb-2">Demo Instructions:</h4>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Click "Open Camera" to use your device camera</li>
-              <li>• Try manually entering "TKT-001" for a valid ticket</li>
-              <li>• Try manually entering "TKT-002" for an already checked-in ticket</li>
-              <li>• Try manually entering "TKT-999" for an invalid ticket</li>
-            </ul>
-          </div>
-
           {/* Scanned Ticket Details */}
           {scannedTicket && (
             <Card className={`border-2 ${scannedTicket.isCheckedIn ? 'border-orange-200 bg-orange-50' : 'border-green-200 bg-green-50'}`}>
@@ -291,6 +414,12 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
                       <span>Event ID:</span>
                       <span className="font-mono">{scannedTicket.eventId}</span>
                     </div>
+                    {scannedTicket.checkedInAt && (
+                      <div className="flex justify-between">
+                        <span>Checked In:</span>
+                        <span className="text-xs">{new Date(scannedTicket.checkedInAt).toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

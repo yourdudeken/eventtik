@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Calendar, MapPin, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TicketPurchaseProps {
   event: any;
@@ -48,35 +49,104 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
     setPaymentStep('payment');
     setIsProcessing(true);
 
-    // Simulate M-Pesa STK Push
-    console.log("Initiating M-Pesa payment...", formData);
-    
-    setTimeout(() => {
-      // Simulate successful payment
-      const ticketData = {
-        ticketId: `TKT-${Date.now()}`,
-        userId: `USR-${Date.now()}`,
-        eventId: event.id,
-        event: event,
-        buyer: formData,
-        quantity: formData.quantity,
-        totalAmount: event.price * formData.quantity,
-        purchaseDate: new Date().toISOString(),
-        qrCode: `TKT-${Date.now()}-${event.id}-${Date.now()}`
-      };
+    try {
+      const ticketId = `TKT-${Date.now()}`;
+      const totalAmount = event.price * formData.quantity;
 
-      setIsProcessing(false);
-      setPaymentStep('success');
-      
-      toast({
-        title: "Payment Successful!",
-        description: "Your ticket has been generated"
+      // Create ticket record first
+      const { data: ticketData, error: ticketError } = await supabase
+        .from('tickets')
+        .insert({
+          ticket_id: ticketId,
+          event_id: event.id,
+          user_id: `USR-${Date.now()}`,
+          buyer_name: formData.name,
+          buyer_email: formData.email,
+          buyer_phone: formData.phone,
+          payment_status: 'pending',
+          qr_code: `${ticketId}-${event.id}-${Date.now()}`
+        })
+        .select()
+        .single();
+
+      if (ticketError) {
+        throw new Error(ticketError.message);
+      }
+
+      // Format phone number for M-Pesa (ensure it starts with 254)
+      let mpesaPhone = formData.phone.replace(/\D/g, '');
+      if (mpesaPhone.startsWith('0')) {
+        mpesaPhone = '254' + mpesaPhone.substring(1);
+      } else if (!mpesaPhone.startsWith('254')) {
+        mpesaPhone = '254' + mpesaPhone;
+      }
+
+      // Initiate M-Pesa payment
+      const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('mpesa-payment', {
+        body: {
+          phoneNumber: mpesaPhone,
+          amount: totalAmount,
+          ticketId: ticketId
+        }
       });
 
-      setTimeout(() => {
-        onSuccess(ticketData);
-      }, 2000);
-    }, 3000);
+      if (paymentError || !paymentResult.success) {
+        throw new Error(paymentResult?.error || 'Payment initiation failed');
+      }
+
+      // Poll for payment status
+      const checkPaymentStatus = async () => {
+        const { data: updatedTicket } = await supabase
+          .from('tickets')
+          .select('payment_status')
+          .eq('ticket_id', ticketId)
+          .single();
+
+        if (updatedTicket?.payment_status === 'completed') {
+          setIsProcessing(false);
+          setPaymentStep('success');
+          
+          const completeTicketData = {
+            ticketId,
+            userId: `USR-${Date.now()}`,
+            eventId: event.id,
+            event: event,
+            buyer: formData,
+            quantity: formData.quantity,
+            totalAmount,
+            purchaseDate: new Date().toISOString(),
+            qrCode: ticketData.qr_code
+          };
+
+          toast({
+            title: "Payment Successful!",
+            description: "Your ticket has been generated"
+          });
+
+          setTimeout(() => {
+            onSuccess(completeTicketData);
+          }, 2000);
+        } else if (updatedTicket?.payment_status === 'failed') {
+          throw new Error('Payment failed or was cancelled');
+        } else {
+          // Continue polling
+          setTimeout(checkPaymentStatus, 3000);
+        }
+      };
+
+      // Start polling after 5 seconds
+      setTimeout(checkPaymentStatus, 5000);
+
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      setIsProcessing(false);
+      setPaymentStep('form');
+      toast({
+        title: "Payment Failed",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const totalAmount = event.price * formData.quantity;

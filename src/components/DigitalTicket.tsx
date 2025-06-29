@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Download, Mail, QrCode, Calendar, MapPin, User, Ticket } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DigitalTicketProps {
   ticket: any;
@@ -14,26 +15,77 @@ interface DigitalTicketProps {
 
 export const DigitalTicket = ({ ticket, onBack }: DigitalTicketProps) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const { toast } = useToast();
 
   const handleDownload = async () => {
     setIsDownloading(true);
     
-    // Simulate ticket download
-    setTimeout(() => {
-      setIsDownloading(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-ticket-pdf', {
+        body: { ticketData: ticket }
+      });
+
+      if (error) throw error;
+
+      // Create download link
+      const blob = new Blob([data], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ticket_${ticket.ticketId}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       toast({
         title: "Ticket Downloaded",
         description: "Your ticket has been saved to your device"
       });
-    }, 1500);
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to download ticket",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
-  const handleSendEmail = () => {
-    toast({
-      title: "Email Sent",
-      description: "Ticket has been sent to your email address"
-    });
+  const handleSendEmail = async () => {
+    setIsSendingEmail(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('send-ticket-email', {
+        body: {
+          email: ticket.buyer.email,
+          ticketData: ticket
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "Email Sent",
+          description: "Ticket has been sent to your email address"
+        });
+      } else {
+        throw new Error(data.error || 'Email sending failed');
+      }
+    } catch (error: any) {
+      console.error('Email error:', error);
+      toast({
+        title: "Email Failed",
+        description: error.message || "Failed to send email",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   // Generate QR code data URL (in real app, this would be generated on backend)
@@ -176,11 +228,12 @@ export const DigitalTicket = ({ ticket, onBack }: DigitalTicketProps) => {
             
             <Button
               onClick={handleSendEmail}
+              disabled={isSendingEmail}
               variant="outline"
               className="flex-1"
             >
               <Mail className="h-4 w-4 mr-2" />
-              Email Ticket
+              {isSendingEmail ? 'Sending...' : 'Email Ticket'}
             </Button>
           </div>
 

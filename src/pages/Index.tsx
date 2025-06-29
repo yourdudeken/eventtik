@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { EventCard } from "../components/EventCard";
 import { TicketPurchase } from "../components/TicketPurchase";
@@ -9,7 +10,7 @@ import { AppSidebar } from "../components/AppSidebar";
 import { Footer } from "../components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { QrCode, Ticket, Users, Plus, User, ShoppingCart } from "lucide-react";
+import { QrCode, Ticket, Plus, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -150,16 +151,6 @@ const Index = () => {
                 <QrCode className="h-4 w-4 mr-1" />
                 Staff Scanner
               </Button>
-              {user && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => supabase.auth.signOut()}
-                >
-                  <User className="h-4 w-4 mr-1" />
-                  Sign Out
-                </Button>
-              )}
             </div>
           </div>
         </div>

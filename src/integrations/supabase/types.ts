@@ -97,7 +97,11 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          max_tickets: number | null
           price: number
+          ticket_deadline: string | null
+          ticket_type: string | null
+          tickets_sold: number | null
           time: string
           title: string
           updated_at: string
@@ -110,7 +114,11 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          max_tickets?: number | null
           price?: number
+          ticket_deadline?: string | null
+          ticket_type?: string | null
+          tickets_sold?: number | null
           time: string
           title: string
           updated_at?: string
@@ -123,7 +131,11 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          max_tickets?: number | null
           price?: number
+          ticket_deadline?: string | null
+          ticket_type?: string | null
+          tickets_sold?: number | null
           time?: string
           title?: string
           updated_at?: string

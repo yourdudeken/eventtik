@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, MapPin, DollarSign, Image, FileText } from "lucide-react";
+import { Calendar, MapPin, DollarSign, Image, FileText, Users, Clock } from "lucide-react";
 
 interface CreateEventFormProps {
   onSuccess: () => void;
@@ -20,7 +21,10 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
     time: "",
     venue: "",
     price: "",
-    image_url: ""
+    image_url: "",
+    ticket_type: "open",
+    max_tickets: "",
+    ticket_deadline: ""
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -29,6 +33,13 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData({
+      ...formData,
+      [name]: value
     });
   };
 
@@ -43,6 +54,22 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
         throw new Error("You must be logged in to create events");
       }
 
+      // Validate ticket type specific fields
+      if (formData.ticket_type === 'fixed') {
+        if (!formData.max_tickets || parseInt(formData.max_tickets) <= 0) {
+          throw new Error("Please specify the maximum number of tickets for fixed ticket events");
+        }
+      }
+
+      if (formData.ticket_type === 'open' && formData.ticket_deadline) {
+        const deadlineDate = new Date(formData.ticket_deadline);
+        const eventDate = new Date(formData.date);
+        
+        if (deadlineDate >= eventDate) {
+          throw new Error("Ticket deadline must be before the event date");
+        }
+      }
+
       const { error } = await supabase
         .from('events')
         .insert([
@@ -54,7 +81,10 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
             venue: formData.venue,
             price: parseFloat(formData.price) || 0,
             image_url: formData.image_url || null,
-            creator_id: user.id
+            creator_id: user.id,
+            ticket_type: formData.ticket_type,
+            max_tickets: formData.ticket_type === 'fixed' ? parseInt(formData.max_tickets) || null : null,
+            ticket_deadline: formData.ticket_deadline || null
           }
         ]);
 
@@ -73,7 +103,10 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
         time: "",
         venue: "",
         price: "",
-        image_url: ""
+        image_url: "",
+        ticket_type: "open",
+        max_tickets: "",
+        ticket_deadline: ""
       });
 
       onSuccess();
@@ -207,6 +240,76 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
             <p className="text-xs text-muted-foreground mt-1">
               Optional: Add a URL to an image for your event
             </p>
+          </div>
+
+          {/* Ticket Management Section */}
+          <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+            <h3 className="font-semibold text-lg flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Ticket Management
+            </h3>
+            
+            <div>
+              <Label htmlFor="ticket_type">Ticket Type *</Label>
+              <Select 
+                value={formData.ticket_type} 
+                onValueChange={(value) => handleSelectChange('ticket_type', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select ticket type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">Open Tickets (No limit)</SelectItem>
+                  <SelectItem value="fixed">Fixed Number of Tickets</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Choose whether to limit the number of tickets or keep it open
+              </p>
+            </div>
+
+            {formData.ticket_type === 'fixed' && (
+              <div>
+                <Label htmlFor="max_tickets">Maximum Tickets *</Label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="max_tickets"
+                    name="max_tickets"
+                    type="number"
+                    min="1"
+                    placeholder="100"
+                    value={formData.max_tickets}
+                    onChange={handleInputChange}
+                    className="pl-10"
+                    required={formData.ticket_type === 'fixed'}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Set the maximum number of tickets available for this event
+                </p>
+              </div>
+            )}
+
+            {formData.ticket_type === 'open' && (
+              <div>
+                <Label htmlFor="ticket_deadline">Ticket Sales Deadline (Optional)</Label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="ticket_deadline"
+                    name="ticket_deadline"
+                    type="datetime-local"
+                    value={formData.ticket_deadline}
+                    onChange={handleInputChange}
+                    className="pl-10"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Set when ticket sales should stop (must be before event date)
+                </p>
+              </div>
+            )}
           </div>
 
           <Button 

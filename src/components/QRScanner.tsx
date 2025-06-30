@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, QrCode, User, Calendar, MapPin, CheckCircle, XCircle, Camera, CameraOff, AlertTriangle } from "lucide-react";
 import QrScanner from 'react-qr-scanner';
 import { supabase } from "@/integrations/supabase/client";
+import { StaffRoute } from "./StaffRoute";
 
 interface QRScannerProps {
   onBack: () => void;
@@ -21,26 +21,16 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
   const [showCamera, setShowCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string>('');
   const [userRole, setUserRole] = useState<string>('');
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    checkUserRole();
+    getUserRole();
   }, []);
 
-  const checkUserRole = async () => {
+  const getUserRole = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsLoading(false);
-        toast({
-          title: "Authentication Required",
-          description: "Please log in with your staff credentials to access the scanner",
-          variant: "destructive"
-        });
-        return;
-      }
+      if (!user) return;
 
       const { data: roleData } = await supabase
         .from('user_roles')
@@ -48,25 +38,11 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
         .eq('user_id', user.id)
         .single();
 
-      if (roleData && (roleData.role === 'admin' || roleData.role === 'staff')) {
+      if (roleData) {
         setUserRole(roleData.role);
-        setIsAuthorized(true);
-      } else {
-        toast({
-          title: "Access Denied",
-          description: "Only admin and staff can access the QR scanner for ticket validation",
-          variant: "destructive"
-        });
       }
     } catch (error) {
-      console.error('Role check error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to verify staff credentials",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Role fetch error:', error);
     }
   };
 
@@ -208,7 +184,7 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
   };
 
   const handleCheckIn = async () => {
-    if (!scannedTicket || !isAuthorized) return;
+    if (!scannedTicket) return;
 
     if (scannedTicket.status !== 'valid') {
       toast({
@@ -309,62 +285,8 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <Button variant="ghost" onClick={onBack} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Events
-        </Button>
-        <Card>
-          <CardContent className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Verifying staff credentials...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!isAuthorized) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <Button variant="ghost" onClick={onBack} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Events
-        </Button>
-
-        <Card>
-          <CardContent className="text-center py-12">
-            <XCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Staff Access Required</h3>
-            <p className="text-gray-600 mb-4">
-              This scanner is restricted to authorized staff members only. 
-              Please log in with your staff credentials to validate tickets at the entrance.
-            </p>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>For Staff:</strong> Contact your administrator to get your staff account credentials.
-                You need to be logged in with a staff or admin account to access this feature.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-2xl mx-auto">
-      <Button
-        variant="ghost"
-        onClick={onBack}
-        className="mb-4"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Events
-      </Button>
-
+    <StaffRoute onBack={onBack}>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -547,6 +469,6 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
           )}
         </CardContent>
       </Card>
-    </div>
+    </StaffRoute>
   );
 };

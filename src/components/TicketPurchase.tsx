@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Calendar, MapPin, Loader2, Info, Users } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Loader2, Info, Users, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PromoCodeInput } from "./PromoCodeInput";
 
@@ -49,6 +49,28 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
     }
   };
 
+  const checkTicketAvailability = () => {
+    const now = new Date();
+    
+    // Check if ticket sales have a deadline and it has passed
+    if (event.ticket_deadline && new Date(event.ticket_deadline) < now) {
+      return { available: false, reason: "Ticket sales have ended for this event" };
+    }
+    
+    // Check if it's a fixed ticket event and we have availability
+    if (event.ticket_type === 'fixed') {
+      const availableTickets = (event.max_tickets || 0) - (event.tickets_sold || 0);
+      if (availableTickets <= 0) {
+        return { available: false, reason: "This event is sold out" };
+      }
+      if (formData.quantity > availableTickets) {
+        return { available: false, reason: `Only ${availableTickets} tickets remaining` };
+      }
+    }
+    
+    return { available: true, reason: null };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -65,6 +87,17 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
       toast({
         title: "Invalid Quantity",
         description: "Please select between 1 and 10 tickets",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check ticket availability before processing
+    const availability = checkTicketAvailability();
+    if (!availability.available) {
+      toast({
+        title: "Tickets Unavailable",
+        description: availability.reason,
         variant: "destructive"
       });
       return;
@@ -199,6 +232,7 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
   const totalAmount = calculateTotal();
   const originalAmount = event.price * formData.quantity;
   const savings = originalAmount - totalAmount;
+  const availability = checkTicketAvailability();
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -206,6 +240,38 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Events
       </Button>
+
+      {/* Ticket Availability Warning */}
+      {!availability.available && (
+        <Card className="mb-6 border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-red-900 mb-1">Tickets Unavailable</h3>
+                <p className="text-sm text-red-800">{availability.reason}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ticket Deadline Warning */}
+      {availability.available && event.ticket_deadline && (
+        <Card className="mb-6 border-yellow-200 bg-yellow-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-yellow-900 mb-1">Limited Time</h3>
+                <p className="text-sm text-yellow-800">
+                  Ticket sales end on {new Date(event.ticket_deadline).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* No Account Required Notice */}
       <Card className="mb-6 border-blue-200 bg-blue-50">
@@ -254,6 +320,16 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
               <span>Price per ticket:</span>
               <Badge variant="secondary">KSh {event.price.toLocaleString()}</Badge>
             </div>
+
+            {/* Ticket Availability Info */}
+            {event.ticket_type === 'fixed' && (
+              <div className="flex justify-between items-center text-sm">
+                <span>Tickets remaining:</span>
+                <Badge variant="outline">
+                  {Math.max(0, (event.max_tickets || 0) - (event.tickets_sold || 0))} / {event.max_tickets}
+                </Badge>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -316,11 +392,19 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
                     name="quantity"
                     type="number"
                     min="1"
-                    max="10"
+                    max={event.ticket_type === 'fixed' ? 
+                      Math.min(10, Math.max(0, (event.max_tickets || 0) - (event.tickets_sold || 0))) : 
+                      10
+                    }
                     value={formData.quantity}
                     onChange={handleInputChange}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Maximum 10 tickets per purchase</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {event.ticket_type === 'fixed' ? 
+                      `Maximum ${Math.min(10, Math.max(0, (event.max_tickets || 0) - (event.tickets_sold || 0)))} tickets available` :
+                      'Maximum 10 tickets per purchase'
+                    }
+                  </p>
                 </div>
 
                 {/* Promo Code Section */}
@@ -367,9 +451,9 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
                 <Button 
                   type="submit" 
                   className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={isProcessing}
+                  disabled={isProcessing || !availability.available}
                 >
-                  Pay with M-Pesa
+                  {!availability.available ? 'Tickets Unavailable' : 'Pay with M-Pesa'}
                 </Button>
               </form>
             )}

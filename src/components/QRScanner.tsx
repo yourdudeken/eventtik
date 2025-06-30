@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, QrCode, User, Calendar, MapPin, CheckCircle, XCircle, Camera, CameraOff } from "lucide-react";
+import { ArrowLeft, QrCode, User, Calendar, MapPin, CheckCircle, XCircle, Camera, CameraOff, AlertTriangle } from "lucide-react";
 import QrScanner from 'react-qr-scanner';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -114,12 +115,30 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
         return;
       }
 
+      // Check ticket status
+      if (ticket.status === 'revoked') {
+        toast({
+          title: "Revoked Ticket",
+          description: "This ticket has been revoked and is no longer valid",
+          variant: "destructive"
+        });
+      } else if (ticket.status === 'transferred') {
+        toast({
+          title: "Transferred Ticket",
+          description: "This ticket has been transferred to another person",
+          variant: "destructive"
+        });
+      }
+
       const formattedTicket = {
         ticketId: ticket.ticket_id,
         userId: ticket.user_id,
         eventId: ticket.event_id,
         isCheckedIn: ticket.checked_in,
         checkedInAt: ticket.checked_in_at,
+        status: ticket.status,
+        transferredTo: ticket.transferred_to_email,
+        transferredAt: ticket.transferred_at,
         buyer: {
           name: ticket.buyer_name,
           email: ticket.buyer_email,
@@ -136,9 +155,14 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
       setScannedTicket(formattedTicket);
       setShowCamera(false);
       
+      const statusMessage = ticket.status === 'valid' ? 
+        `Valid ticket for ${ticket.buyer_name}` :
+        `Ticket status: ${ticket.status}`;
+      
       toast({
-        title: "Ticket Found",
-        description: `Ticket for ${ticket.buyer_name} verified`,
+        title: "Ticket Scanned",
+        description: statusMessage,
+        variant: ticket.status === 'valid' ? "default" : "destructive"
       });
 
     } catch (error) {
@@ -186,6 +210,15 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
   const handleCheckIn = async () => {
     if (!scannedTicket || !isAuthorized) return;
 
+    if (scannedTicket.status !== 'valid') {
+      toast({
+        title: "Cannot Check In",
+        description: `Ticket status is ${scannedTicket.status}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -194,7 +227,8 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
         .from('tickets')
         .update({
           checked_in: true,
-          checked_in_at: new Date().toISOString()
+          checked_in_at: new Date().toISOString(),
+          status: 'checked_in'
         })
         .eq('ticket_id', scannedTicket.ticketId);
 
@@ -203,7 +237,8 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
       const updatedTicket = { 
         ...scannedTicket, 
         isCheckedIn: true,
-        checkedInAt: new Date().toISOString()
+        checkedInAt: new Date().toISOString(),
+        status: 'checked_in'
       };
       setScannedTicket(updatedTicket);
       
@@ -231,6 +266,47 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
   const toggleCamera = () => {
     setShowCamera(!showCamera);
     setCameraError('');
+  };
+
+  const getTicketStatusBadge = (status: string, isCheckedIn: boolean) => {
+    if (isCheckedIn) {
+      return (
+        <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Already Checked In
+        </Badge>
+      );
+    }
+
+    switch (status) {
+      case 'valid':
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Valid Ticket
+          </Badge>
+        );
+      case 'revoked':
+        return (
+          <Badge variant="destructive">
+            <XCircle className="h-3 w-3 mr-1" />
+            Revoked
+          </Badge>
+        );
+      case 'transferred':
+        return (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            Transferred
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            {status}
+          </Badge>
+        );
+    }
   };
 
   if (isLoading) {
@@ -381,26 +457,15 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
 
           {/* Scanned Ticket Details */}
           {scannedTicket && (
-            <Card className={`border-2 ${scannedTicket.isCheckedIn ? 'border-orange-200 bg-orange-50' : 'border-green-200 bg-green-50'}`}>
+            <Card className={`border-2 ${
+              scannedTicket.status === 'valid' && !scannedTicket.isCheckedIn ? 'border-green-200 bg-green-50' :
+              scannedTicket.isCheckedIn ? 'border-orange-200 bg-orange-50' :
+              'border-red-200 bg-red-50'
+            }`}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-lg">Ticket Details</h3>
-                  <Badge 
-                    variant={scannedTicket.isCheckedIn ? "secondary" : "default"}
-                    className={scannedTicket.isCheckedIn ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"}
-                  >
-                    {scannedTicket.isCheckedIn ? (
-                      <>
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Already Checked In
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Valid Ticket
-                      </>
-                    )}
-                  </Badge>
+                  {getTicketStatusBadge(scannedTicket.status, scannedTicket.isCheckedIn)}
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
@@ -430,12 +495,8 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
                       <span className="font-mono">{scannedTicket.ticketId}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>User ID:</span>
-                      <span className="font-mono">{scannedTicket.userId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Event ID:</span>
-                      <span className="font-mono">{scannedTicket.eventId}</span>
+                      <span>Status:</span>
+                      <span className="font-medium">{scannedTicket.status}</span>
                     </div>
                     {scannedTicket.checkedInAt && (
                       <div className="flex justify-between">
@@ -443,10 +504,16 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
                         <span className="text-xs">{new Date(scannedTicket.checkedInAt).toLocaleString()}</span>
                       </div>
                     )}
+                    {scannedTicket.transferredTo && (
+                      <div className="flex justify-between">
+                        <span>Transferred To:</span>
+                        <span className="text-xs">{scannedTicket.transferredTo}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {!scannedTicket.isCheckedIn && (
+                {scannedTicket.status === 'valid' && !scannedTicket.isCheckedIn && (
                   <Button
                     onClick={handleCheckIn}
                     className="w-full mt-4 bg-green-600 hover:bg-green-700"
@@ -459,8 +526,19 @@ export const QRScanner = ({ onBack }: QRScannerProps) => {
                 {scannedTicket.isCheckedIn && (
                   <div className="mt-4 p-3 bg-orange-100 rounded-lg text-center">
                     <div className="flex items-center justify-center gap-2 text-orange-800">
+                      <CheckCircle className="h-5 w-5" />
+                      <span className="font-medium">This attendee has been checked in</span>
+                    </div>
+                  </div>
+                )}
+
+                {(scannedTicket.status === 'revoked' || scannedTicket.status === 'transferred') && (
+                  <div className="mt-4 p-3 bg-red-100 rounded-lg text-center">
+                    <div className="flex items-center justify-center gap-2 text-red-800">
                       <XCircle className="h-5 w-5" />
-                      <span className="font-medium">This ticket has already been used</span>
+                      <span className="font-medium">
+                        This ticket is {scannedTicket.status} and cannot be used for entry
+                      </span>
                     </div>
                   </div>
                 )}

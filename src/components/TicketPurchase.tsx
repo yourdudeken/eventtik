@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Calendar, MapPin, Loader2, Info } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Loader2, Info, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { PromoCodeInput } from "./PromoCodeInput";
 
 interface TicketPurchaseProps {
   event: any;
@@ -23,15 +24,29 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
     phone: '',
     quantity: 1
   });
+  const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStep, setPaymentStep] = useState<'form' | 'payment' | 'success'>('form');
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: name === 'quantity' ? parseInt(value) || 1 : value
     });
+  };
+
+  const calculateTotal = () => {
+    const baseAmount = event.price * formData.quantity;
+    
+    if (!appliedDiscount) return baseAmount;
+    
+    if (appliedDiscount.type === 'percentage') {
+      return baseAmount * (1 - appliedDiscount.value / 100);
+    } else {
+      return Math.max(0, baseAmount - appliedDiscount.value);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,12 +61,21 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
       return;
     }
 
+    if (formData.quantity < 1 || formData.quantity > 10) {
+      toast({
+        title: "Invalid Quantity",
+        description: "Please select between 1 and 10 tickets",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setPaymentStep('payment');
     setIsProcessing(true);
 
     try {
       const ticketId = `TKT-${Date.now()}`;
-      const totalAmount = event.price * formData.quantity;
+      const totalAmount = calculateTotal();
 
       // Create ticket record first
       const { data: ticketData, error: ticketError } = await supabase
@@ -64,13 +88,24 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
           buyer_email: formData.email,
           buyer_phone: formData.phone,
           payment_status: 'pending',
-          qr_code: `${ticketId}-${event.id}-${Date.now()}`
+          qr_code: `${ticketId}-${event.id}-${Date.now()}`,
+          status: 'valid'
         })
         .select()
         .single();
 
       if (ticketError) {
         throw new Error(ticketError.message);
+      }
+
+      // Update promo code usage if discount was applied
+      if (appliedDiscount) {
+        await supabase
+          .from('promo_codes')
+          .update({ 
+            current_uses: supabase.sql`current_uses + 1` 
+          })
+          .eq('code', appliedDiscount.code);
       }
 
       // Format phone number for M-Pesa (ensure it starts with 254)
@@ -114,8 +149,12 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
             buyer: formData,
             quantity: formData.quantity,
             totalAmount,
+            originalAmount: event.price * formData.quantity,
+            discount: appliedDiscount,
             purchaseDate: new Date().toISOString(),
-            qrCode: ticketData.qr_code
+            qrCode: ticketData.qr_code,
+            receiptNumber: ticketData.receipt_number,
+            status: 'valid'
           };
 
           toast({
@@ -149,7 +188,9 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
     }
   };
 
-  const totalAmount = event.price * formData.quantity;
+  const totalAmount = calculateTotal();
+  const originalAmount = event.price * formData.quantity;
+  const savings = originalAmount - totalAmount;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -258,7 +299,10 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
                 </div>
 
                 <div>
-                  <Label htmlFor="quantity">Number of Tickets</Label>
+                  <Label htmlFor="quantity" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Number of Tickets
+                  </Label>
                   <Input
                     id="quantity"
                     name="quantity"
@@ -268,15 +312,48 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
                     value={formData.quantity}
                     onChange={handleInputChange}
                   />
+                  <p className="text-xs text-gray-500 mt-1">Maximum 10 tickets per purchase</p>
+                </div>
+
+                {/* Promo Code Section */}
+                <div>
+                  <Label>Promo Code (Optional)</Label>
+                  <PromoCodeInput
+                    eventId={event.id}
+                    onDiscountApplied={setAppliedDiscount}
+                    onDiscountRemoved={() => setAppliedDiscount(null)}
+                    appliedDiscount={appliedDiscount}
+                  />
                 </div>
 
                 <Separator />
 
-                <div className="flex justify-between items-center font-bold">
-                  <span>Total Amount:</span>
-                  <span className="text-lg text-green-600">
-                    KSh {totalAmount.toLocaleString()}
-                  </span>
+                {/* Price Breakdown */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal ({formData.quantity} tickets):</span>
+                    <span>KSh {originalAmount.toLocaleString()}</span>
+                  </div>
+                  
+                  {appliedDiscount && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Discount ({appliedDiscount.code}):</span>
+                      <span>-KSh {savings.toLocaleString()}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center font-bold text-lg">
+                    <span>Total Amount:</span>
+                    <span className="text-green-600">
+                      KSh {totalAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  
+                  {savings > 0 && (
+                    <p className="text-sm text-green-600 text-center">
+                      You save KSh {savings.toLocaleString()}!
+                    </p>
+                  )}
                 </div>
 
                 <Button 
@@ -300,6 +377,11 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
                   <p className="text-sm text-green-800">
                     Enter your M-Pesa PIN to complete the payment of <br />
                     <strong>KSh {totalAmount.toLocaleString()}</strong>
+                    {formData.quantity > 1 && (
+                      <span className="block text-xs mt-1">
+                        ({formData.quantity} tickets)
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -314,7 +396,7 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Payment Successful!</h3>
                 <p className="text-gray-600">
-                  Generating your digital ticket...
+                  Generating your digital ticket{formData.quantity > 1 ? 's' : ''}...
                 </p>
               </div>
             )}

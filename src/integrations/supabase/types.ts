@@ -9,6 +9,86 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      event_feedback: {
+        Row: {
+          created_at: string
+          event_id: string
+          feedback_text: string | null
+          id: string
+          rating: number | null
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          feedback_text?: string | null
+          id?: string
+          rating?: number | null
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          feedback_text?: string | null
+          id?: string
+          rating?: number | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_feedback_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_feedback_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["ticket_id"]
+          },
+        ]
+      }
+      event_reminders: {
+        Row: {
+          created_at: string
+          id: string
+          reminder_type: string
+          scheduled_for: string
+          sent_at: string | null
+          status: string | null
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reminder_type: string
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string | null
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reminder_type?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_reminders_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["ticket_id"]
+          },
+        ]
+      }
       events: {
         Row: {
           created_at: string
@@ -51,6 +131,56 @@ export type Database = {
         }
         Relationships: []
       }
+      promo_codes: {
+        Row: {
+          code: string
+          created_at: string
+          current_uses: number | null
+          discount_type: string
+          discount_value: number
+          event_id: string | null
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_uses?: number | null
+          discount_type: string
+          discount_value: number
+          event_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_uses?: number | null
+          discount_type?: string
+          discount_value?: number
+          event_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           buyer_email: string | null
@@ -68,7 +198,12 @@ export type Database = {
           payment_reference: string | null
           payment_status: string
           qr_code: string | null
+          receipt_number: string | null
+          status: string | null
           ticket_id: string
+          transfer_token: string | null
+          transferred_at: string | null
+          transferred_to_email: string | null
           user_id: string
         }
         Insert: {
@@ -87,7 +222,12 @@ export type Database = {
           payment_reference?: string | null
           payment_status?: string
           qr_code?: string | null
+          receipt_number?: string | null
+          status?: string | null
           ticket_id: string
+          transfer_token?: string | null
+          transferred_at?: string | null
+          transferred_to_email?: string | null
           user_id: string
         }
         Update: {
@@ -106,7 +246,12 @@ export type Database = {
           payment_reference?: string | null
           payment_status?: string
           qr_code?: string | null
+          receipt_number?: string | null
+          status?: string | null
           ticket_id?: string
+          transfer_token?: string | null
+          transferred_at?: string | null
+          transferred_to_email?: string | null
           user_id?: string
         }
         Relationships: [

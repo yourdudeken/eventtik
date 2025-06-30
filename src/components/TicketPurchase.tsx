@@ -100,12 +100,20 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
 
       // Update promo code usage if discount was applied
       if (appliedDiscount) {
-        await supabase
+        const { data: currentPromo } = await supabase
           .from('promo_codes')
-          .update({ 
-            current_uses: supabase.sql`current_uses + 1` 
-          })
-          .eq('code', appliedDiscount.code);
+          .select('current_uses')
+          .eq('code', appliedDiscount.code)
+          .single();
+
+        if (currentPromo) {
+          await supabase
+            .from('promo_codes')
+            .update({ 
+              current_uses: (currentPromo.current_uses || 0) + 1 
+            })
+            .eq('code', appliedDiscount.code);
+        }
       }
 
       // Format phone number for M-Pesa (ensure it starts with 254)

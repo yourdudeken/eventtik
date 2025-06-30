@@ -114,7 +114,7 @@ export const PromoCodeInput = ({
           placeholder="Enter promo code"
           value={promoCode}
           onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-          disabled={isValidating || appliedDiscount}
+          disabled={isValidating || !!appliedDiscount}
           className="flex-1"
         />
         {!appliedDiscount ? (

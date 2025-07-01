@@ -39,7 +39,7 @@ export const StaffRoute = ({ children, onBack, requiredRole = 'staff' }: StaffRo
         
         // Check if user has required role or higher privileges
         const hasAccess = roleData.role === 'admin' || 
-                         (requiredRole === 'staff' && (roleData.role === 'staff' || roleData.role === 'admin'));
+                         (requiredRole === 'staff' && roleData.role === 'staff');
         
         setIsAuthorized(hasAccess);
       }

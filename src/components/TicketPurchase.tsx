@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStep, setPaymentStep] = useState<'form' | 'payment' | 'success'>('form');
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,8 +179,23 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
         }
       });
 
-      if (paymentError || !paymentResult.success) {
-        throw new Error(paymentResult?.error || 'Payment initiation failed');
+      if (paymentError) {
+        console.error('Payment error:', paymentError);
+        throw new Error('Payment initiation failed');
+      }
+
+      if (!paymentResult.success) {
+        throw new Error(paymentResult.error || 'Payment initiation failed');
+      }
+
+      // Check if we're in demo mode
+      if (paymentResult.demo) {
+        setIsDemoMode(true);
+        toast({
+          title: "Demo Mode Active",
+          description: "M-Pesa credentials not configured. Running in demo mode.",
+          variant: "default"
+        });
       }
 
       // Poll for payment status
@@ -211,7 +228,7 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
 
           toast({
             title: "Payment Successful!",
-            description: "Your ticket has been generated"
+            description: isDemoMode ? "Demo payment completed successfully!" : "Your ticket has been generated"
           });
 
           setTimeout(() => {

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,6 +70,14 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
     return { available: true, reason: null };
   };
 
+  const generateUUID = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -108,7 +115,10 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
 
     try {
       const ticketId = `TKT-${Date.now()}`;
+      const userId = generateUUID(); // Generate proper UUID
       const totalAmount = calculateTotal();
+
+      console.log('Creating ticket with user_id:', userId);
 
       // Create ticket record first
       const { data: ticketData, error: ticketError } = await supabase
@@ -116,7 +126,7 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
         .insert({
           ticket_id: ticketId,
           event_id: event.id,
-          user_id: `USR-${Date.now()}`,
+          user_id: userId, // Now using proper UUID
           buyer_name: formData.name,
           buyer_email: formData.email,
           buyer_phone: formData.phone,
@@ -128,6 +138,7 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
         .single();
 
       if (ticketError) {
+        console.error('Ticket creation error:', ticketError);
         throw new Error(ticketError.message);
       }
 
@@ -184,7 +195,7 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
           
           const completeTicketData = {
             ticketId,
-            userId: `USR-${Date.now()}`,
+            userId: userId,
             eventId: event.id,
             event: event,
             buyer: formData,

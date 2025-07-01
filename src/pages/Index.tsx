@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { EventCard } from "../components/EventCard";
 import { TicketPurchase } from "../components/TicketPurchase";
@@ -8,6 +7,7 @@ import { CreatorDashboard } from "../components/CreatorDashboard";
 import { AuthModal } from "../components/AuthModal";
 import { AppSidebar } from "../components/AppSidebar";
 import { Footer } from "../components/Footer";
+import { FloatingChatbot } from "../components/FloatingChatbot";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QrCode, Ticket, Plus, ShoppingCart } from "lucide-react";
@@ -19,20 +19,46 @@ const Index = () => {
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [purchasedTicket, setPurchasedTicket] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string>('');
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Check authentication status
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkUserRole(session.user.id);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkUserRole(session.user.id);
+      } else {
+        setUserRole('');
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const checkUserRole = async (userId: string) => {
+    try {
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
+
+      if (roleData) {
+        setUserRole(roleData.role);
+      }
+    } catch (error) {
+      console.error('Role check error:', error);
+      setUserRole('');
+    }
+  };
 
   // Fetch events from Supabase
   const { data: events = [], isLoading, refetch } = useQuery({
@@ -49,7 +75,6 @@ const Index = () => {
   });
 
   const handleEventSelect = (event: any) => {
-    // No authentication required for ticket purchase
     setSelectedEvent(event);
     setCurrentView('purchase');
   };
@@ -74,9 +99,12 @@ const Index = () => {
   };
 
   const handleScannerAccess = () => {
-    // Always require authentication for scanner access
-    if (user) {
+    // Only allow staff and admin users
+    if (user && (userRole === 'staff' || userRole === 'admin')) {
       setCurrentView('scanner');
+    } else if (user) {
+      // User is logged in but not staff/admin
+      return;
     } else {
       setShowAuthModal(true);
     }
@@ -106,6 +134,9 @@ const Index = () => {
   const handleSignOut = () => {
     supabase.auth.signOut();
   };
+
+  // Check if user has staff privileges
+  const isStaffUser = userRole === 'staff' || userRole === 'admin';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-teal-50 flex flex-col">
@@ -142,15 +173,18 @@ const Index = () => {
                 <Plus className="h-4 w-4 mr-1" />
                 Create Event
               </Button>
-              <Button
-                variant={currentView === 'scanner' ? 'default' : 'outline'}
-                size="sm"
-                onClick={handleScannerAccess}
-                title="Staff login required"
-              >
-                <QrCode className="h-4 w-4 mr-1" />
-                Staff Scanner
-              </Button>
+              {/* Only show Staff Scanner for staff/admin users */}
+              {isStaffUser && (
+                <Button
+                  variant={currentView === 'scanner' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={handleScannerAccess}
+                  title="Staff access required"
+                >
+                  <QrCode className="h-4 w-4 mr-1" />
+                  Staff Scanner
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -256,6 +290,9 @@ const Index = () => {
 
       {/* Footer */}
       <Footer />
+
+      {/* Floating Chatbot */}
+      <FloatingChatbot />
 
       {showAuthModal && (
         <AuthModal

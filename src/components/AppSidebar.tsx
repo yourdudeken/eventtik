@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { 
   Drawer, 
@@ -20,6 +19,8 @@ import {
   Info,
   Mail
 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AppSidebarProps {
   user: any;
@@ -28,6 +29,35 @@ interface AppSidebarProps {
 }
 
 export const AppSidebar = ({ user, onNavigate, onSignOut }: AppSidebarProps) => {
+  const [userRole, setUserRole] = useState<string>('');
+
+  useEffect(() => {
+    if (user) {
+      checkUserRole(user.id);
+    } else {
+      setUserRole('');
+    }
+  }, [user]);
+
+  const checkUserRole = async (userId: string) => {
+    try {
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
+
+      if (roleData) {
+        setUserRole(roleData.role);
+      }
+    } catch (error) {
+      console.error('Role check error:', error);
+      setUserRole('');
+    }
+  };
+
+  const isStaffUser = userRole === 'staff' || userRole === 'admin';
+
   return (
     <Drawer direction="left">
       <DrawerTrigger asChild>
@@ -79,16 +109,19 @@ export const AppSidebar = ({ user, onNavigate, onSignOut }: AppSidebarProps) => 
                 </Button>
               </DrawerClose>
 
-              <DrawerClose asChild>
-                <Button 
-                  variant="ghost" 
-                  className="justify-start"
-                  onClick={() => onNavigate('scanner')}
-                >
-                  <QrCode className="h-4 w-4 mr-3" />
-                  QR Scanner
-                </Button>
-              </DrawerClose>
+              {/* Only show QR Scanner for staff/admin users */}
+              {isStaffUser && (
+                <DrawerClose asChild>
+                  <Button 
+                    variant="ghost" 
+                    className="justify-start"
+                    onClick={() => onNavigate('scanner')}
+                  >
+                    <QrCode className="h-4 w-4 mr-3" />
+                    QR Scanner
+                  </Button>
+                </DrawerClose>
+              )}
             </>
           )}
 
@@ -112,6 +145,11 @@ export const AppSidebar = ({ user, onNavigate, onSignOut }: AppSidebarProps) => 
             <div className="border-t pt-4 mt-4">
               <div className="px-2 py-2 text-sm text-gray-600">
                 Signed in as: {user.email}
+                {userRole && (
+                  <div className="text-xs text-blue-600 capitalize">
+                    Role: {userRole}
+                  </div>
+                )}
               </div>
               <DrawerClose asChild>
                 <Button 

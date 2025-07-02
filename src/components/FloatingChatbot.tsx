@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,8 +43,10 @@ export const FloatingChatbot = () => {
     "Refund policy"
   ];
 
-  const sendToWebhook = async (message: string) => {
+  const sendToWebhook = async (message: string): Promise<string> => {
     try {
+      console.log('Sending message to webhook:', message);
+      
       const response = await fetch('http://172.237.108.4:5678/webhook-test/b76789e8-26d6-4b4b-8d72-2cd85de257e3', {
         method: 'POST',
         headers: {
@@ -58,14 +59,26 @@ export const FloatingChatbot = () => {
         })
       });
 
+      console.log('Webhook response status:', response.status);
+
       if (response.ok) {
-        const data = await response.text();
-        return data || "I received your message and I'm here to help!";
+        const responseText = await response.text();
+        console.log('Webhook response:', responseText);
+        
+        // If the webhook returns JSON, try to parse it
+        try {
+          const jsonResponse = JSON.parse(responseText);
+          return jsonResponse.message || jsonResponse.response || responseText || "Thank you for your message! I'm here to help with EventTix.";
+        } catch {
+          // If it's not JSON, return the text response
+          return responseText || "Thank you for your message! I'm here to help with EventTix.";
+        }
       } else {
+        console.error('Webhook error - Status:', response.status);
         return "I'm having trouble connecting right now. Please try again in a moment.";
       }
     } catch (error) {
-      console.error('Webhook error:', error);
+      console.error('Webhook fetch error:', error);
       return "I'm having trouble connecting right now. Please try again in a moment.";
     }
   };
@@ -81,11 +94,14 @@ export const FloatingChatbot = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentMessage = inputMessage;
     setInputMessage('');
     setIsLoading(true);
 
-    // Send to webhook and get response
-    const webhookResponse = await sendToWebhook(inputMessage);
+    console.log('Sending message to webhook and waiting for response...');
+    
+    // Send to webhook and wait for response
+    const webhookResponse = await sendToWebhook(currentMessage);
 
     const botMessage: Message = {
       id: (Date.now() + 1).toString(),
@@ -98,12 +114,29 @@ export const FloatingChatbot = () => {
     setIsLoading(false);
   };
 
-  const handleQuickAction = (action: string) => {
-    setInputMessage(action);
-    // Auto-send the quick action
-    setTimeout(() => {
-      handleSendMessage();
-    }, 100);
+  const handleQuickAction = async (action: string) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: action,
+      sender: 'user',
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+
+    // Send to webhook and wait for response
+    const webhookResponse = await sendToWebhook(action);
+
+    const botMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: webhookResponse,
+      sender: 'bot',
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, botMessage]);
+    setIsLoading(false);
   };
 
   if (!isOpen) {

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,9 +46,9 @@ export const FloatingChatbot = () => {
 
   const sendToWebhook = async (message: string): Promise<string> => {
     try {
-      console.log('Sending message to webhook:', message);
+      console.log('Sending message to n8n webhook:', message);
       
-      const response = await fetch('http://172.237.108.4:5678/webhook-test/b76789e8-26d6-4b4b-8d72-2cd85de257e3', {
+      const response = await fetch('http://n8n.yourdudekenlab.duckdns.org/webhook-test/b76789e8-26d6-4b4b-8d72-2cd85de257e3', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,11 +60,11 @@ export const FloatingChatbot = () => {
         })
       });
 
-      console.log('Webhook response status:', response.status);
+      console.log('N8N webhook response status:', response.status);
 
       if (response.ok) {
         const responseText = await response.text();
-        console.log('Webhook response:', responseText);
+        console.log('N8N webhook response:', responseText);
         
         // If the webhook returns JSON, try to parse it
         try {
@@ -74,11 +75,11 @@ export const FloatingChatbot = () => {
           return responseText || "Thank you for your message! I'm here to help with EventTix.";
         }
       } else {
-        console.error('Webhook error - Status:', response.status);
+        console.error('N8N webhook error - Status:', response.status);
         return "I'm having trouble connecting right now. Please try again in a moment.";
       }
     } catch (error) {
-      console.error('Webhook fetch error:', error);
+      console.error('N8N webhook fetch error:', error);
       return "I'm having trouble connecting right now. Please try again in a moment.";
     }
   };

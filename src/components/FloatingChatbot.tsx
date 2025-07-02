@@ -47,7 +47,8 @@ export const FloatingChatbot = () => {
     try {
       console.log('Sending message to webhook:', message);
       
-      const response = await fetch('http://172.237.108.4:5678/webhook-test/b76789e8-26d6-4b4b-8d72-2cd85de257e3', {
+      // First, make a POST request
+      const postResponse = await fetch('http://172.237.108.4:5678/webhook-test/b76789e8-26d6-4b4b-8d72-2cd85de257e3', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,11 +60,29 @@ export const FloatingChatbot = () => {
         })
       });
 
-      console.log('Webhook response status:', response.status);
+      console.log('POST response status:', postResponse.status);
 
-      if (response.ok) {
-        const responseText = await response.text();
-        console.log('Webhook response:', responseText);
+      if (!postResponse.ok) {
+        console.error('POST request failed - Status:', postResponse.status);
+        return "I'm having trouble connecting right now. Please try again in a moment.";
+      }
+
+      // Wait for a moment before making the GET request
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+
+      // Then make a GET request to retrieve the response
+      const getResponse = await fetch('http://172.237.108.4:5678/webhook-test/b76789e8-26d6-4b4b-8d72-2cd85de257e3', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      console.log('GET response status:', getResponse.status);
+
+      if (getResponse.ok) {
+        const responseText = await getResponse.text();
+        console.log('GET response:', responseText);
         
         // If the webhook returns JSON, try to parse it
         try {
@@ -74,11 +93,11 @@ export const FloatingChatbot = () => {
           return responseText || "Thank you for your message! I'm here to help with EventTix.";
         }
       } else {
-        console.error('Webhook error - Status:', response.status);
-        return "I'm having trouble connecting right now. Please try again in a moment.";
+        console.error('GET request failed - Status:', getResponse.status);
+        return "I'm having trouble getting a response right now. Please try again in a moment.";
       }
     } catch (error) {
-      console.error('Webhook fetch error:', error);
+      console.error('Webhook request error:', error);
       return "I'm having trouble connecting right now. Please try again in a moment.";
     }
   };

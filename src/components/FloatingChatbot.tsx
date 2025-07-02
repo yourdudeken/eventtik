@@ -34,6 +34,7 @@ export const FloatingChatbot = () => {
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const quickActions = [
     "How do I buy tickets?",
@@ -43,17 +44,34 @@ export const FloatingChatbot = () => {
     "Refund policy"
   ];
 
-  const botResponses: { [key: string]: string } = {
-    "how do i buy tickets": "To buy tickets: 1) Browse events on the home page, 2) Click on an event you like, 3) Fill in your details, 4) Pay with M-Pesa. No account required!",
-    "payment methods": "We accept M-Pesa payments. Simply enter your phone number and you'll receive an STK push to complete payment.",
-    "event creation guide": "To create events: 1) Sign up for an account, 2) Click 'Create Event', 3) Fill in event details, 4) Set ticket price, 5) Publish your event!",
-    "technical support": "For technical issues: 1) Check your internet connection, 2) Clear browser cache, 3) Try refreshing the page. If problems persist, contact our support team.",
-    "refund policy": "Refunds are processed within 3-5 business days. Contact the event organizer directly for refund requests through your digital ticket.",
-    "default": "I'm here to help with EventTix! You can ask me about buying tickets, creating events, payments, or general site navigation."
+  const sendToWebhook = async (message: string) => {
+    try {
+      const response = await fetch('http://172.237.108.4:5678/webhook-test/b76789e8-26d6-4b4b-8d72-2cd85de257e3', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: message,
+          timestamp: new Date().toISOString(),
+          source: 'eventtix-chatbot'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.text();
+        return data || "I received your message and I'm here to help!";
+      } else {
+        return "I'm having trouble connecting right now. Please try again in a moment.";
+      }
+    } catch (error) {
+      console.error('Webhook error:', error);
+      return "I'm having trouble connecting right now. Please try again in a moment.";
+    }
   };
 
-  const handleSendMessage = () => {
-    if (!inputMessage.trim()) return;
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -63,36 +81,29 @@ export const FloatingChatbot = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
-
-    // Generate bot response
-    setTimeout(() => {
-      const lowerInput = inputMessage.toLowerCase();
-      let response = botResponses.default;
-
-      // Check for keyword matches
-      for (const [key, value] of Object.entries(botResponses)) {
-        if (key !== 'default' && lowerInput.includes(key)) {
-          response = value;
-          break;
-        }
-      }
-
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: response,
-        sender: 'bot',
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, botMessage]);
-    }, 1000);
-
     setInputMessage('');
+    setIsLoading(true);
+
+    // Send to webhook and get response
+    const webhookResponse = await sendToWebhook(inputMessage);
+
+    const botMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: webhookResponse,
+      sender: 'bot',
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, botMessage]);
+    setIsLoading(false);
   };
 
   const handleQuickAction = (action: string) => {
     setInputMessage(action);
-    handleSendMessage();
+    // Auto-send the quick action
+    setTimeout(() => {
+      handleSendMessage();
+    }, 100);
   };
 
   if (!isOpen) {
@@ -178,11 +189,26 @@ export const FloatingChatbot = () => {
                     )}
                   </div>
                 ))}
+                
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <Bot className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <div className="bg-gray-100 text-gray-900 max-w-[200px] rounded-lg p-2 text-sm ml-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </ScrollArea>
 
             {/* Quick Actions */}
-            {messages.length <= 1 && (
+            {messages.length <= 1 && !isLoading && (
               <div className="p-3 border-t">
                 <div className="text-xs text-gray-500 mb-2">Quick questions:</div>
                 <div className="flex flex-wrap gap-1">
@@ -210,12 +236,13 @@ export const FloatingChatbot = () => {
                   placeholder="Type your message..."
                   className="flex-1 h-8 text-sm"
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  disabled={isLoading}
                 />
                 <Button
                   onClick={handleSendMessage}
                   size="icon"
                   className="h-8 w-8"
-                  disabled={!inputMessage.trim()}
+                  disabled={!inputMessage.trim() || isLoading}
                 >
                   <Send className="h-3 w-3" />
                 </Button>

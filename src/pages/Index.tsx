@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { EventCard } from "../components/EventCard";
 import { TicketPurchase } from "../components/TicketPurchase";
 import { DigitalTicket } from "../components/DigitalTicket";
@@ -8,6 +8,7 @@ import { AuthModal } from "../components/AuthModal";
 import { AppSidebar } from "../components/AppSidebar";
 import { Footer } from "../components/Footer";
 import { FloatingChatbot } from "../components/FloatingChatbot";
+import { SearchAndFilters } from "../components/SearchAndFilters";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QrCode, Ticket, Plus, ShoppingCart } from "lucide-react";
@@ -21,6 +22,12 @@ const Index = () => {
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
+  const [priceFilter, setPriceFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
 
   // Check authentication status
   useEffect(() => {
@@ -60,7 +67,7 @@ const Index = () => {
     }
   };
 
-  // Fetch events from Supabase
+  // Fetch events from Supabase with tickets_sold data
   const { data: events = [], isLoading, refetch } = useQuery({
     queryKey: ['events'],
     queryFn: async () => {
@@ -73,6 +80,92 @@ const Index = () => {
       return data;
     }
   });
+
+  // Filter and sort events based on search and filter criteria
+  const filteredAndSortedEvents = useMemo(() => {
+    let filtered = [...events];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(event => 
+        event.title.toLowerCase().includes(query) ||
+        event.venue.toLowerCase().includes(query) ||
+        (event.description && event.description.toLowerCase().includes(query))
+      );
+    }
+
+    // Price filter
+    if (priceFilter !== 'all') {
+      filtered = filtered.filter(event => {
+        const price = Number(event.price);
+        switch (priceFilter) {
+          case 'free':
+            return price === 0;
+          case '0-1000':
+            return price >= 0 && price <= 1000;
+          case '1000-3000':
+            return price > 1000 && price <= 3000;
+          case '3000-5000':
+            return price > 3000 && price <= 5000;
+          case '5000+':
+            return price > 5000;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Date filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const thisWeekStart = new Date(today);
+      thisWeekStart.setDate(today.getDate() - today.getDay());
+      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const thisYearStart = new Date(now.getFullYear(), 0, 1);
+
+      filtered = filtered.filter(event => {
+        const eventDate = new Date(event.date);
+        switch (dateFilter) {
+          case 'today':
+            return eventDate.toDateString() === today.toDateString();
+          case 'this-week':
+            return eventDate >= thisWeekStart && eventDate < new Date(thisWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+          case 'this-month':
+            return eventDate >= thisMonthStart && eventDate < nextMonthStart;
+          case 'next-month':
+            return eventDate >= nextMonthStart && eventDate < new Date(now.getFullYear(), now.getMonth() + 2, 1);
+          case 'this-year':
+            return eventDate >= thisYearStart;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Sort events
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'popularity':
+          return (b.tickets_sold || 0) - (a.tickets_sold || 0);
+        case 'date-asc':
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        case 'date-desc':
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        case 'price-low':
+          return Number(a.price) - Number(b.price);
+        case 'price-high':
+          return Number(b.price) - Number(a.price);
+        case 'newest':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return filtered;
+  }, [events, searchQuery, sortBy, priceFilter, dateFilter]);
 
   const handleEventSelect = (event: any) => {
     setSelectedEvent(event);
@@ -203,41 +296,69 @@ const Index = () => {
                   Buy tickets instantly with M-Pesa. No account required!
                 </p>
               </div>
+
+              {/* Search and Filters */}
+              <SearchAndFilters
+                onSearch={setSearchQuery}
+                onSort={setSortBy}
+                onFilterByPrice={setPriceFilter}
+                onFilterByDate={setDateFilter}
+                searchQuery={searchQuery}
+                sortBy={sortBy}
+                priceFilter={priceFilter}
+                dateFilter={dateFilter}
+              />
               
               {isLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="mt-2 text-gray-600">Loading events...</p>
                 </div>
-              ) : events.length === 0 ? (
+              ) : filteredAndSortedEvents.length === 0 ? (
                 <div className="text-center py-12">
                   <Ticket className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Events Yet</h3>
-                  <p className="text-gray-600 mb-4">Be the first to create an event!</p>
+                  {searchQuery || priceFilter !== 'all' || dateFilter !== 'all' ? (
+                    <>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">No Events Found</h3>
+                      <p className="text-gray-600 mb-4">Try adjusting your search or filters to find more events.</p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">No Events Yet</h3>
+                      <p className="text-gray-600 mb-4">Be the first to create an event!</p>
+                    </>
+                  )}
                   <Button onClick={handleCreatorAccess}>
                     <Plus className="h-4 w-4 mr-2" />
                     Create Event
                   </Button>
                 </div>
               ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {events.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={{
-                        id: event.id,
-                        title: event.title,
-                        date: event.date,
-                        time: event.time,
-                        venue: event.venue,
-                        price: Number(event.price),
-                        image: event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
-                        description: event.description || ""
-                      }}
-                      onSelect={handleEventSelect}
-                    />
-                  ))}
-                </div>
+                <>
+                  {/* Results count */}
+                  <div className="mb-4 text-sm text-gray-600">
+                    Showing {filteredAndSortedEvents.length} of {events.length} events
+                  </div>
+                  
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredAndSortedEvents.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        event={{
+                          id: event.id,
+                          title: event.title,
+                          date: event.date,
+                          time: event.time,
+                          venue: event.venue,
+                          price: Number(event.price),
+                          image: event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
+                          description: event.description || ""
+                        }}
+                        onSelect={handleEventSelect}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
 
               {/* Stats Section */}

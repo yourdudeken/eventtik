@@ -136,7 +136,7 @@ export const EventsList = () => {
 
               <div className="flex items-center gap-2 text-sm">
                 <Users className="h-4 w-4 text-blue-600" />
-                <span>0 tickets sold</span>
+                <span>{event.tickets_sold || 0} tickets sold</span>
               </div>
             </div>
 

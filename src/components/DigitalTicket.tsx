@@ -10,6 +10,7 @@ import { EventFeedback } from "./EventFeedback";
 import { ReceiptGenerator } from "./ReceiptGenerator";
 import { SocialShare } from "./SocialShare";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DigitalTicketProps {
   ticket: any;
@@ -35,35 +36,39 @@ export const DigitalTicket = ({ ticket, onBack }: DigitalTicketProps) => {
   };
 
   const shareViaEmail = async () => {
-    try {
-      const subject = encodeURIComponent(`Ticket for ${ticket.event.title}`);
-      const body = encodeURIComponent(`
-Hello!
+    const recipientEmail = prompt("Enter email address to send ticket:");
+    if (!recipientEmail) return;
 
-I'd like to share my ticket details for ${ticket.event.title}:
-
-Event: ${ticket.event.title}
-Date: ${new Date(ticket.event.date).toLocaleDateString()}
-Time: ${ticket.event.time}
-Venue: ${ticket.event.venue}
-Ticket ID: ${ticket.ticketId}
-
-Looking forward to seeing you there!
-
-Best regards
-      `);
-      
-      const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
-      window.location.href = mailtoLink;
-      
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recipientEmail)) {
       toast({
-        title: "Email Client Opened",
-        description: "Your email client has been opened with the ticket details."
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive"
       });
-    } catch (error) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-ticket-email', {
+        body: {
+          ticketId: ticket.ticketId,
+          recipientEmail: recipientEmail,
+          recipientName: ticket.buyer.name
+        }
+      });
+
+      if (error) throw error;
+
       toast({
-        title: "Error",
-        description: "Failed to open email client.",
+        title: "Email Sent Successfully",
+        description: `Ticket has been sent to ${recipientEmail}`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Send Email",
+        description: error.message || "There was an error sending the email.",
         variant: "destructive"
       });
     }

@@ -11,10 +11,12 @@ interface SearchAndFiltersProps {
   onSort: (sortBy: string) => void;
   onFilterByPrice: (priceRange: string) => void;
   onFilterByDate: (dateRange: string) => void;
+  onFilterByCategory: (category: string) => void;
   searchQuery: string;
   sortBy: string;
   priceFilter: string;
   dateFilter: string;
+  categoryFilter: string;
 }
 
 export const SearchAndFilters = ({
@@ -22,10 +24,12 @@ export const SearchAndFilters = ({
   onSort,
   onFilterByPrice,
   onFilterByDate,
+  onFilterByCategory,
   searchQuery,
   sortBy,
   priceFilter,
-  dateFilter
+  dateFilter,
+  categoryFilter
 }: SearchAndFiltersProps) => {
   const [showFilters, setShowFilters] = useState(false);
 
@@ -57,7 +61,29 @@ export const SearchAndFilters = ({
 
         {/* Filters */}
         {showFilters && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            {/* Category Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Category
+              </label>
+              <Select value={categoryFilter} onValueChange={onFilterByCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="education">Education</SelectItem>
+                  <SelectItem value="vacation">Vacation</SelectItem>
+                  <SelectItem value="music">Music</SelectItem>
+                  <SelectItem value="entertainment">Entertainment</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Sort by Popularity */}
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
@@ -136,12 +162,17 @@ export const SearchAndFilters = ({
         )}
 
         {/* Active Filters Display */}
-        {(searchQuery || sortBy !== 'newest' || priceFilter !== 'all' || dateFilter !== 'all') && (
+        {(searchQuery || sortBy !== 'newest' || priceFilter !== 'all' || dateFilter !== 'all' || categoryFilter !== 'all') && (
           <div className="mt-4 pt-4 border-t">
             <div className="flex flex-wrap gap-2">
               {searchQuery && (
                 <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
                   Search: "{searchQuery}"
+                </span>
+              )}
+              {categoryFilter !== 'all' && (
+                <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-xs">
+                  Category: {categoryFilter.charAt(0).toUpperCase() + categoryFilter.slice(1)}
                 </span>
               )}
               {sortBy !== 'newest' && (

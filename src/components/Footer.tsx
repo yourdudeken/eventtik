@@ -1,11 +1,12 @@
 
 import { Ticket, Mail, Phone, MapPin } from "lucide-react";
+import { NewsletterSubscription } from "./NewsletterSubscription";
 
 export const Footer = () => {
   return (
     <footer className="bg-gray-900 text-white py-12 mt-16">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="grid gap-8 md:grid-cols-4">
+        <div className="grid gap-8 md:grid-cols-5">
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -57,6 +58,11 @@ export const Footer = () => {
                 <span>Nairobi, Kenya</span>
               </div>
             </div>
+          </div>
+
+          {/* Newsletter Subscription */}
+          <div>
+            <NewsletterSubscription />
           </div>
         </div>
 

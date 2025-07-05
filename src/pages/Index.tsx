@@ -28,6 +28,7 @@ const Index = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [priceFilter, setPriceFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
   // Check authentication status
   useEffect(() => {
@@ -93,6 +94,11 @@ const Index = () => {
         event.venue.toLowerCase().includes(query) ||
         (event.description && event.description.toLowerCase().includes(query))
       );
+    }
+
+    // Category filter
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(event => event.category === categoryFilter);
     }
 
     // Price filter
@@ -165,7 +171,21 @@ const Index = () => {
     });
 
     return filtered;
-  }, [events, searchQuery, sortBy, priceFilter, dateFilter]);
+  }, [events, searchQuery, sortBy, priceFilter, dateFilter, categoryFilter]);
+
+  // Get upcoming events (next 30 days)
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    return events
+      .filter(event => {
+        const eventDate = new Date(event.date);
+        return eventDate >= now && eventDate <= thirtyDaysFromNow;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 6);
+  }, [events]);
 
   const handleEventSelect = (event: any) => {
     setSelectedEvent(event);
@@ -297,16 +317,47 @@ const Index = () => {
                 </p>
               </div>
 
+              {/* Upcoming Events Section */}
+              {upcomingEvents.length > 0 && (
+                <div className="mb-12">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-6">Upcoming Events</h3>
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {upcomingEvents.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        event={{
+                          id: event.id,
+                          title: event.title,
+                          date: event.date,
+                          time: event.time,
+                          venue: event.venue,
+                          price: Number(event.price),
+                          image: event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
+                          description: event.description || "",
+                          category: event.category || "general",
+                          ticket_type: event.ticket_type,
+                          max_tickets: event.max_tickets,
+                          tickets_sold: event.tickets_sold
+                        }}
+                        onSelect={handleEventSelect}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Search and Filters */}
               <SearchAndFilters
                 onSearch={setSearchQuery}
                 onSort={setSortBy}
                 onFilterByPrice={setPriceFilter}
                 onFilterByDate={setDateFilter}
+                onFilterByCategory={setCategoryFilter}
                 searchQuery={searchQuery}
                 sortBy={sortBy}
                 priceFilter={priceFilter}
                 dateFilter={dateFilter}
+                categoryFilter={categoryFilter}
               />
               
               {isLoading ? (
@@ -317,7 +368,7 @@ const Index = () => {
               ) : filteredAndSortedEvents.length === 0 ? (
                 <div className="text-center py-12">
                   <Ticket className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  {searchQuery || priceFilter !== 'all' || dateFilter !== 'all' ? (
+                  {searchQuery || priceFilter !== 'all' || dateFilter !== 'all' || categoryFilter !== 'all' ? (
                     <>
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">No Events Found</h3>
                       <p className="text-gray-600 mb-4">Try adjusting your search or filters to find more events.</p>
@@ -352,7 +403,11 @@ const Index = () => {
                           venue: event.venue,
                           price: Number(event.price),
                           image: event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
-                          description: event.description || ""
+                          description: event.description || "",
+                          category: event.category || "general",
+                          ticket_type: event.ticket_type,
+                          max_tickets: event.max_tickets,
+                          tickets_sold: event.tickets_sold
                         }}
                         onSelect={handleEventSelect}
                       />

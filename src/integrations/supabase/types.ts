@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      email_subscriptions: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_feedback: {
         Row: {
           created_at: string
@@ -91,6 +115,7 @@ export type Database = {
       }
       events: {
         Row: {
+          category: string | null
           created_at: string
           creator_id: string
           date: string
@@ -108,6 +133,7 @@ export type Database = {
           venue: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           creator_id: string
           date: string
@@ -125,6 +151,7 @@ export type Database = {
           venue: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           creator_id?: string
           date?: string

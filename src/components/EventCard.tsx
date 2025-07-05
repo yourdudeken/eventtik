@@ -13,6 +13,10 @@ interface Event {
   price: number;
   image: string;
   description: string;
+  category?: string;
+  ticket_type?: string;
+  max_tickets?: number;
+  tickets_sold?: number;
 }
 
 interface EventCardProps {
@@ -29,6 +33,16 @@ export const EventCard = ({ event, onSelect }: EventCardProps) => {
     });
   };
 
+  const isSoldOut = event.ticket_type === 'fixed' && 
+    event.max_tickets !== undefined && 
+    event.tickets_sold !== undefined && 
+    event.tickets_sold >= event.max_tickets;
+
+  const formatCategory = (category?: string) => {
+    if (!category) return '';
+    return category.charAt(0).toUpperCase() + category.slice(1);
+  };
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-white">
       <div className="relative">
@@ -43,9 +57,23 @@ export const EventCard = ({ event, onSelect }: EventCardProps) => {
       </div>
       
       <CardContent className="p-4">
-        <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2">
-          {event.title}
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-bold text-lg text-gray-900 line-clamp-2 flex-1">
+            {event.title}
+          </h3>
+          {event.category && (
+            <Badge variant="outline" className="text-xs ml-2">
+              {formatCategory(event.category)}
+            </Badge>
+          )}
+        </div>
+        
+        {isSoldOut && (
+          <Badge className="bg-red-500 hover:bg-red-600 mb-2">
+            SOLD OUT
+          </Badge>
+        )}
+        
         <p className="text-gray-600 text-sm mb-3 line-clamp-2">
           {event.description}
         </p>
@@ -59,6 +87,17 @@ export const EventCard = ({ event, onSelect }: EventCardProps) => {
             <MapPin className="h-4 w-4 text-blue-600" />
             <span>{event.venue}</span>
           </div>
+          {event.ticket_type === 'fixed' && event.max_tickets && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                Tickets remaining:
+              </span>
+              <span className="font-medium">
+                {Math.max(0, event.max_tickets - (event.tickets_sold || 0))} / {event.max_tickets}
+              </span>
+            </div>
+          )}
         </div>
       </CardContent>
       
@@ -66,8 +105,9 @@ export const EventCard = ({ event, onSelect }: EventCardProps) => {
         <Button 
           onClick={() => onSelect(event)}
           className="w-full bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700"
+          disabled={isSoldOut}
         >
-          Buy Ticket
+          {isSoldOut ? 'Sold Out' : 'Buy Ticket'}
         </Button>
       </CardFooter>
     </Card>

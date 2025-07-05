@@ -386,10 +386,7 @@ const Index = () => {
                 </div>
               ) : (
                 <>
-                  {/* Results count */}
-                  <div className="mb-4 text-sm text-gray-600">
-                    Showing {filteredAndSortedEvents.length} of {events.length} events
-                  </div>
+                  {/* Results count removed per user request */}
                   
                   <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {filteredAndSortedEvents.map((event) => (

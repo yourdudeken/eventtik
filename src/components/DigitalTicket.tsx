@@ -469,7 +469,7 @@ function generateProfessionalTicketHTML(ticket: any): string {
             <div class="ticket-body">
                 <div class="qr-section">
                     <div class="qr-code">
-                        <div style="width: 200px; height: 200px; background: url('data:image/svg+xml;base64,${btoa(generateQRSVG(ticket.qrCode))}') no-repeat center; background-size: contain;"></div>
+                        <div style="width: 200px; height: 200px; border: 2px solid #000; display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 10px; text-align: center; word-break: break-all; padding: 10px; background: white;">${ticket.qrCode}</div>
                     </div>
                     <div style="margin-top: 15px;">
                         <div style="font-weight: bold; margin-bottom: 5px;">Ticket ID: ${ticket.ticketId}</div>

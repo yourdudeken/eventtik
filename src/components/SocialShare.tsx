@@ -43,7 +43,7 @@ export const SocialShare = ({ ticket }: SocialShareProps) => {
 
   const shareToInstagram = () => {
     // Instagram doesn't support direct URL sharing, so we copy the text
-    const message = customMessage || `${defaultMessage}\n\nEvent Details:\n📅 ${eventDate}\n📍 ${ticket.event.venue}\n🎫 Ticket ID: ${ticket.ticketId}`;
+    const message = customMessage || `${defaultMessage}\n\nEvent Details:\n📅 ${eventDate}\n📍 ${ticket.event.venue}`;
     
     navigator.clipboard.writeText(message).then(() => {
       toast({
@@ -54,7 +54,7 @@ export const SocialShare = ({ ticket }: SocialShareProps) => {
   };
 
   const shareToWhatsApp = () => {
-    const message = customMessage || `${defaultMessage}\n\nEvent Details:\n📅 ${eventDate}\n📍 ${ticket.event.venue}\n🎫 Ticket ID: ${ticket.ticketId}`;
+    const message = customMessage || `${defaultMessage}\n\nEvent Details:\n📅 ${eventDate}\n📍 ${ticket.event.venue}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
     
@@ -92,7 +92,7 @@ Best regards
   };
 
   const copyToClipboard = () => {
-    const message = customMessage || `${defaultMessage}\n\nEvent Details:\n📅 ${eventDate}\n📍 ${ticket.event.venue}\n🎫 Ticket ID: ${ticket.ticketId}\n\nEvent Link: ${eventUrl}`;
+    const message = customMessage || `${defaultMessage}\n\nEvent Details:\n📅 ${eventDate}\n📍 ${ticket.event.venue}\n\nEvent Link: ${eventUrl}`;
     
     navigator.clipboard.writeText(message).then(() => {
       toast({
@@ -230,7 +230,6 @@ Best regards
             <p><strong>Event:</strong> {eventTitle}</p>
             <p><strong>Date:</strong> {eventDate} at {ticket.event.time}</p>
             <p><strong>Venue:</strong> {ticket.event.venue}</p>
-            <p><strong>Ticket ID:</strong> {ticket.ticketId}</p>
           </div>
         </div>
       </CardContent>

@@ -148,6 +148,31 @@ export const EventsList = () => {
                 Created {new Date(event.created_at).toLocaleDateString()}
               </div>
             </div>
+            
+            {/* Shareable Event Link */}
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+              <p className="text-xs font-medium text-blue-800 mb-2">Share this event with customers:</p>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  value={`${window.location.origin}/?event=${event.id}`}
+                  readOnly
+                  className="flex-1 text-xs p-2 bg-white border rounded font-mono"
+                />
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/?event=${event.id}`);
+                    toast({
+                      title: "Link Copied!",
+                      description: "Event link copied to clipboard"
+                    });
+                  }}
+                >
+                  Copy Link
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       ))}

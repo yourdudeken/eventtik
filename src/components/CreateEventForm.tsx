@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, MapPin, DollarSign, Image, FileText, Users, Clock } from "lucide-react";
+import { Calendar, MapPin, DollarSign, Image, FileText, Users, Clock, Upload, X } from "lucide-react";
 
 interface CreateEventFormProps {
   onSuccess: () => void;
@@ -27,6 +27,9 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
     ticket_deadline: ""
   });
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -43,6 +46,61 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
     });
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!selectedImage) return null;
+
+    setUploadingImage(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be logged in to upload images");
+
+      const fileExt = selectedImage.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = `events/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('event-images')
+        .upload(filePath, selectedImage);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('event-images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      toast({
+        title: "Upload Error",
+        description: error.message,
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview("");
+    setFormData({ ...formData, image_url: "" });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -52,6 +110,15 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
       
       if (!user) {
         throw new Error("You must be logged in to create events");
+      }
+
+      // Upload image if selected
+      let imageUrl = formData.image_url;
+      if (selectedImage) {
+        imageUrl = await uploadImage();
+        if (!imageUrl) {
+          throw new Error("Failed to upload image");
+        }
       }
 
       // Validate ticket type specific fields
@@ -80,7 +147,7 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
             time: formData.time,
             venue: formData.venue,
             price: parseFloat(formData.price) || 0,
-            image_url: formData.image_url || null,
+            image_url: imageUrl || null,
             creator_id: user.id,
             ticket_type: formData.ticket_type,
             max_tickets: formData.ticket_type === 'fixed' ? parseInt(formData.max_tickets) || null : null,
@@ -108,6 +175,8 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
         max_tickets: "",
         ticket_deadline: ""
       });
+      setSelectedImage(null);
+      setImagePreview("");
 
       onSuccess();
     } catch (error: any) {
@@ -224,22 +293,64 @@ export const CreateEventForm = ({ onSuccess }: CreateEventFormProps) => {
           </div>
 
           <div>
-            <Label htmlFor="image_url">Event Image URL</Label>
-            <div className="relative">
-              <Image className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                id="image_url"
-                name="image_url"
-                type="url"
-                placeholder="https://example.com/image.jpg"
-                value={formData.image_url}
-                onChange={handleInputChange}
-                className="pl-10"
-              />
+            <Label>Event Image</Label>
+            <div className="space-y-3">
+              {!imagePreview && !formData.image_url && (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-sm text-gray-600 mb-2">Upload an image from your device</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                    disabled={uploadingImage}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Choose Image
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">Or enter a URL below</p>
+                </div>
+              )}
+              
+              {(imagePreview || formData.image_url) && (
+                <div className="relative">
+                  <img
+                    src={imagePreview || formData.image_url}
+                    alt="Event preview"
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={removeImage}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              
+              <div className="relative">
+                <Image className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="image_url"
+                  name="image_url"
+                  type="url"
+                  placeholder="Or paste image URL here..."
+                  value={formData.image_url}
+                  onChange={handleInputChange}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Optional: Add a URL to an image for your event
-            </p>
           </div>
 
           {/* Ticket Management Section */}

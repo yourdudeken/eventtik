@@ -30,6 +30,20 @@ const Index = () => {
   const [dateFilter, setDateFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
+  // Fetch events from Supabase with tickets_sold data
+  const { data: events = [], isLoading, refetch } = useQuery({
+    queryKey: ['events'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
   // Check authentication status
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -51,6 +65,33 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Check for event query parameter in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event');
+    
+    if (eventId && events.length > 0) {
+      const event = events.find(e => e.id === eventId);
+      if (event) {
+        setSelectedEvent({
+          id: event.id,
+          title: event.title,
+          date: event.date,
+          time: event.time,
+          venue: event.venue,
+          price: Number(event.price),
+          image: event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
+          description: event.description || "",
+          category: event.category || "general",
+          ticket_type: event.ticket_type,
+          max_tickets: event.max_tickets,
+          tickets_sold: event.tickets_sold
+        });
+        setCurrentView('purchase');
+      }
+    }
+  }, [events]);
+
   const checkUserRole = async (userId: string) => {
     try {
       const { data: roleData } = await supabase
@@ -67,20 +108,6 @@ const Index = () => {
       setUserRole('');
     }
   };
-
-  // Fetch events from Supabase with tickets_sold data
-  const { data: events = [], isLoading, refetch } = useQuery({
-    queryKey: ['events'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data;
-    }
-  });
 
   // Filter and sort events based on search and filter criteria
   const filteredAndSortedEvents = useMemo(() => {

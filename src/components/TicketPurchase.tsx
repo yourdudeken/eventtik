@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Calendar, MapPin, Loader2, Info, Users, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PromoCodeInput } from "./PromoCodeInput";
+import { EventCard } from "./EventCard";
+import { useQuery } from "@tanstack/react-query";
 
 interface TicketPurchaseProps {
   event: any;
@@ -29,6 +31,23 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
   const [paymentStep, setPaymentStep] = useState<'form' | 'payment' | 'success'>('form');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const { toast } = useToast();
+
+  // Fetch similar events (same category, excluding current event)
+  const { data: similarEvents = [] } = useQuery({
+    queryKey: ['similar-events', event.id, event.category],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('category', event.category || 'general')
+        .neq('id', event.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -523,6 +542,46 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
           </CardContent>
         </Card>
       </div>
+
+      {/* Similar Events Section */}
+      {similarEvents.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Similar Events You Might Like</h3>
+          <div className="grid gap-4 md:grid-cols-3">
+            {similarEvents.map((similarEvent) => (
+              <EventCard
+                key={similarEvent.id}
+                event={{
+                  id: similarEvent.id,
+                  title: similarEvent.title,
+                  date: similarEvent.date,
+                  time: similarEvent.time,
+                  venue: similarEvent.venue,
+                  price: Number(similarEvent.price),
+                  image: similarEvent.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
+                  description: similarEvent.description || "",
+                  category: similarEvent.category || "general",
+                  ticket_type: similarEvent.ticket_type,
+                  max_tickets: similarEvent.max_tickets,
+                  tickets_sold: similarEvent.tickets_sold
+                }}
+                onSelect={(newEvent) => {
+                  setSelectedEvent(newEvent);
+                  // Reset form data when switching events
+                  setFormData({
+                    name: '',
+                    email: '',
+                    phone: '',
+                    quantity: 1
+                  });
+                  setAppliedDiscount(null);
+                  setPaymentStep('form');
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -566,8 +566,16 @@ export const TicketPurchase = ({ event, onSuccess, onBack }: TicketPurchaseProps
                   tickets_sold: similarEvent.tickets_sold
                 }}
                 onSelect={(newEvent) => {
-                  // Navigate to the new event's purchase page
-                  window.location.href = `/?event=${newEvent.id}#purchase`;
+                  setSelectedEvent(newEvent);
+                  // Reset form data when switching events
+                  setFormData({
+                    name: '',
+                    email: '',
+                    phone: '',
+                    quantity: 1
+                  });
+                  setAppliedDiscount(null);
+                  setPaymentStep('form');
                 }}
               />
             ))}

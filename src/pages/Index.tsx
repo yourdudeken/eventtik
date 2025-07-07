@@ -4,6 +4,7 @@ import { TicketPurchase } from "../components/TicketPurchase";
 import { DigitalTicket } from "../components/DigitalTicket";
 import { QRScanner } from "../components/QRScanner";
 import { CreatorDashboard } from "../components/CreatorDashboard";
+import { AdminDashboard } from "../components/AdminDashboard";
 import { AuthModal } from "../components/AuthModal";
 import { AppSidebar } from "../components/AppSidebar";
 import { Footer } from "../components/Footer";
@@ -11,12 +12,12 @@ import { FloatingChatbot } from "../components/FloatingChatbot";
 import { SearchAndFilters } from "../components/SearchAndFilters";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { QrCode, Ticket, Plus, ShoppingCart } from "lucide-react";
+import { QrCode, Ticket, Plus, ShoppingCart, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState<'events' | 'purchase' | 'ticket' | 'scanner' | 'creator'>('events');
+  const [currentView, setCurrentView] = useState<'events' | 'purchase' | 'ticket' | 'scanner' | 'creator' | 'admin'>('events');
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [purchasedTicket, setPurchasedTicket] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
@@ -112,6 +113,13 @@ const Index = () => {
   // Filter and sort events based on search and filter criteria
   const filteredAndSortedEvents = useMemo(() => {
     let filtered = [...events];
+
+    // Filter out expired events first
+    const now = new Date();
+    filtered = filtered.filter(event => {
+      const eventDate = new Date(event.date);
+      return eventDate >= now;
+    });
 
     // Search filter
     if (searchQuery.trim()) {
@@ -277,6 +285,9 @@ const Index = () => {
 
   // Check if user has staff privileges
   const isStaffUser = userRole === 'staff' || userRole === 'admin';
+  
+  // Check if user is the admin
+  const isAdmin = user?.email === 'kenmwendwamuthengi@gmail.com';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-teal-50 flex flex-col">
@@ -323,6 +334,18 @@ const Index = () => {
                 >
                   <QrCode className="h-4 w-4 mr-1" />
                   Staff Scanner
+                </Button>
+              )}
+              {/* Only show Admin Dashboard for specific admin user */}
+              {isAdmin && (
+                <Button
+                  variant={currentView === 'admin' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCurrentView('admin')}
+                  title="Admin access"
+                >
+                  <Shield className="h-4 w-4 mr-1" />
+                  Admin
                 </Button>
               )}
             </div>
@@ -483,6 +506,12 @@ const Index = () => {
             <CreatorDashboard 
               onBack={() => setCurrentView('events')}
               onEventCreated={() => refetch()}
+            />
+          )}
+
+          {currentView === 'admin' && isAdmin && (
+            <AdminDashboard 
+              onBack={() => setCurrentView('events')}
             />
           )}
         </div>

@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const { ticketData } = await req.json()
 
-    // Generate HTML for the ticket
+    // Generate compact single-page HTML for the ticket
     const ticketHtml = `
       <!DOCTYPE html>
       <html>
@@ -22,55 +22,51 @@ serve(async (req) => {
         <meta charset="utf-8">
         <title>Event Ticket</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          .ticket { max-width: 600px; margin: 0 auto; border: 2px solid #000; padding: 20px; }
-          .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
-          .event-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-          .details { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-          .qr-section { text-align: center; margin: 20px 0; }
-          .qr-code { font-family: monospace; background: #f5f5f5; padding: 15px; border: 1px solid #ccc; }
-          .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; }
+          body { font-family: Arial, sans-serif; margin: 0; padding: 12px; font-size: 12px; }
+          .ticket { max-width: 600px; margin: 0 auto; background: white; border: 2px solid #000; padding: 16px; }
+          .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 12px; margin-bottom: 12px; }
+          .event-title { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+          .details { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; font-size: 11px; }
+          .qr-section { text-align: center; margin: 12px 0; }
+          .qr-code { font-family: monospace; background: #f5f5f5; padding: 8px; border: 1px solid #ccc; font-size: 10px; }
+          .footer { text-align: center; font-size: 10px; color: #666; margin-top: 12px; border-top: 1px solid #ccc; padding-top: 8px; }
         </style>
       </head>
       <body>
         <div class="ticket">
           <div class="header">
             <div class="event-title">${ticketData.event.title}</div>
-            <div>Digital Ticket</div>
+            <div>🎫 Digital Ticket</div>
           </div>
           
           <div class="details">
             <div>
-              <h3>Event Details</h3>
-              <p><strong>Date:</strong> ${new Date(ticketData.event.date).toLocaleDateString()}</p>
-              <p><strong>Time:</strong> ${ticketData.event.time}</p>
-              <p><strong>Venue:</strong> ${ticketData.event.venue}</p>
+              <h4 style="margin: 0 0 4px 0;">Event Details</h4>
+              <p style="margin: 2px 0;"><strong>📅 Date:</strong> ${new Date(ticketData.event.date).toLocaleDateString()}</p>
+              <p style="margin: 2px 0;"><strong>🕐 Time:</strong> ${ticketData.event.time}</p>
+              <p style="margin: 2px 0;"><strong>📍 Venue:</strong> ${ticketData.event.venue}</p>
             </div>
             
             <div>
-              <h3>Ticket Holder</h3>
-              <p><strong>Name:</strong> ${ticketData.buyer.name}</p>
-              <p><strong>Email:</strong> ${ticketData.buyer.email}</p>
-              <p><strong>Phone:</strong> ${ticketData.buyer.phone}</p>
-              <p><strong>Quantity:</strong> ${ticketData.quantity} ticket(s)</p>
+              <h4 style="margin: 0 0 4px 0;">Ticket Holder</h4>
+              <p style="margin: 2px 0;"><strong>👤 Name:</strong> ${ticketData.buyer.name}</p>
+              <p style="margin: 2px 0;"><strong>📧 Email:</strong> ${ticketData.buyer.email}</p>
+              <p style="margin: 2px 0;"><strong>📱 Phone:</strong> ${ticketData.buyer.phone}</p>
             </div>
           </div>
           
           <div class="qr-section">
-            <h3>QR Code</h3>
             <div class="qr-code">${ticketData.qrCode}</div>
-            <p style="font-size: 12px;">Show this QR code at the event entrance</p>
+            <p style="font-size: 10px; margin: 4px 0;">Scan at entrance</p>
           </div>
           
-          <div style="border-top: 1px solid #ccc; padding-top: 15px;">
-            <p><strong>Ticket ID:</strong> ${ticketData.ticketId}</p>
-            <p><strong>Total Amount:</strong> KSh ${ticketData.totalAmount.toLocaleString()}</p>
-            <p><strong>Purchase Date:</strong> ${new Date(ticketData.purchaseDate).toLocaleDateString()}</p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 10px; margin-bottom: 8px;">
+            <p style="margin: 0;"><strong>Ticket ID:</strong> ${ticketData.ticketId}</p>
+            <p style="margin: 0;"><strong>Amount:</strong> KSh ${ticketData.totalAmount.toLocaleString()}</p>
           </div>
           
           <div class="footer">
-            <p>This ticket is non-transferable and non-refundable.</p>
-            <p>Please arrive 30 minutes before the event starts.</p>
+            <p style="margin: 0;">Non-transferable • Present for entry • EventTix ${new Date().getFullYear()}</p>
           </div>
         </div>
       </body>

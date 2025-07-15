@@ -1,11 +1,11 @@
-
 import { Ticket, Mail, Phone, MapPin, MessageCircle, HelpCircle } from "lucide-react";
+import { NewsletterSubscription } from "./NewsletterSubscription";
 
 export const Footer = () => {
   return (
     <footer className="bg-gray-900 text-white py-12 mt-16">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="grid gap-8 md:grid-cols-4">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-5">
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Ticket className="h-6 w-6 text-blue-400" />
@@ -68,6 +68,9 @@ export const Footer = () => {
                 <span>Nairobi, Kenya</span>
               </div>
             </div>
+          </div>
+          <div className="lg:col-span-2">
+            <NewsletterSubscription />
           </div>
         </div>
         

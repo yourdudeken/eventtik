@@ -7,7 +7,6 @@ import { CreatorDashboard } from "../components/CreatorDashboard";
 import { AdminDashboard } from "../components/AdminDashboard";
 import { AuthModal } from "../components/AuthModal";
 import { AppSidebar } from "../components/AppSidebar";
-import { Footer } from "../components/Footer";
 import { FloatingChatbot } from "../components/FloatingChatbot";
 import { SearchAndFilters } from "../components/SearchAndFilters";
 import { Button } from "@/components/ui/button";
@@ -15,12 +14,17 @@ import { Card } from "@/components/ui/card";
 import { QrCode, Ticket, Plus, ShoppingCart, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { Tables } from "@/integrations/supabase/types";
+import { User } from "@supabase/supabase-js";
+
+type Event = Tables<'events'>;
+type Ticket = Tables<'tickets'>;
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<'events' | 'purchase' | 'ticket' | 'scanner' | 'creator' | 'admin'>('events');
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
-  const [purchasedTicket, setPurchasedTicket] = useState<any>(null);
-  const [user, setUser] = useState<any>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [purchasedTicket, setPurchasedTicket] = useState<Ticket | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -74,20 +78,7 @@ const Index = () => {
     if (eventId && events.length > 0) {
       const event = events.find(e => e.id === eventId);
       if (event) {
-        setSelectedEvent({
-          id: event.id,
-          title: event.title,
-          date: event.date,
-          time: event.time,
-          venue: event.venue,
-          price: Number(event.price),
-          image: event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
-          description: event.description || "",
-          category: event.category || "general",
-          ticket_type: event.ticket_type,
-          max_tickets: event.max_tickets,
-          tickets_sold: event.tickets_sold
-        });
+        setSelectedEvent(event);
         setCurrentView('purchase');
       }
     }
@@ -222,12 +213,12 @@ const Index = () => {
       .slice(0, 6);
   }, [events]);
 
-  const handleEventSelect = (event: any) => {
+  const handleEventSelect = (event: Event) => {
     setSelectedEvent(event);
     setCurrentView('purchase');
   };
 
-  const handlePurchaseSuccess = (ticketData: any) => {
+  const handlePurchaseSuccess = (ticketData: Ticket) => {
     setPurchasedTicket(ticketData);
     setCurrentView('ticket');
   };
@@ -375,20 +366,7 @@ const Index = () => {
                     {upcomingEvents.map((event) => (
                       <EventCard
                         key={event.id}
-                        event={{
-                          id: event.id,
-                          title: event.title,
-                          date: event.date,
-                          time: event.time,
-                          venue: event.venue,
-                          price: Number(event.price),
-                          image: event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
-                          description: event.description || "",
-                          category: event.category || "general",
-                          ticket_type: event.ticket_type,
-                          max_tickets: event.max_tickets,
-                          tickets_sold: event.tickets_sold
-                        }}
+                        event={event}
                         onSelect={handleEventSelect}
                       />
                     ))}
@@ -442,20 +420,7 @@ const Index = () => {
                     {filteredAndSortedEvents.map((event) => (
                       <EventCard
                         key={event.id}
-                        event={{
-                          id: event.id,
-                          title: event.title,
-                          date: event.date,
-                          time: event.time,
-                          venue: event.venue,
-                          price: Number(event.price),
-                          image: event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
-                          description: event.description || "",
-                          category: event.category || "general",
-                          ticket_type: event.ticket_type,
-                          max_tickets: event.max_tickets,
-                          tickets_sold: event.tickets_sold
-                        }}
+                        event={event}
                         onSelect={handleEventSelect}
                       />
                     ))}
@@ -516,9 +481,6 @@ const Index = () => {
           )}
         </div>
       </div>
-
-      {/* Footer */}
-      <Footer />
 
       {/* Floating Chatbot */}
       <FloatingChatbot />

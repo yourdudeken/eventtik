@@ -3,21 +3,9 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Users } from "lucide-react";
+import { Tables } from "@/integrations/supabase/types";
 
-interface Event {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  venue: string;
-  price: number;
-  image: string;
-  description: string;
-  category?: string;
-  ticket_type?: string;
-  max_tickets?: number;
-  tickets_sold?: number;
-}
+type Event = Tables<'events'>;
 
 interface EventCardProps {
   event: Event;
@@ -47,7 +35,7 @@ export const EventCard = ({ event, onSelect }: EventCardProps) => {
     <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-white">
       <div className="relative">
         <img
-          src={event.image}
+          src={event.image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400"}
           alt={event.title}
           className="w-full h-48 object-cover"
         />

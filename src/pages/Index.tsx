@@ -199,17 +199,25 @@ const Index = () => {
     return filtered;
   }, [events, searchQuery, sortBy, priceFilter, dateFilter, categoryFilter]);
 
-  // Get upcoming events (next 30 days)
+  // Get upcoming events (next 24 hours)
   const upcomingEvents = useMemo(() => {
     const now = new Date();
-    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     
     return events
       .filter(event => {
         const eventDate = new Date(event.date);
-        return eventDate >= now && eventDate <= thirtyDaysFromNow;
+        return eventDate >= now && eventDate <= twentyFourHoursFromNow;
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 6);
+  }, [events]);
+
+  // Get most popular events
+  const popularEvents = useMemo(() => {
+    return [...events]
+      .filter(event => event.ticket_type === 'fixed' || (event.tickets_sold || 0) > 0)
+      .sort((a, b) => (b.tickets_sold || 0) - (a.tickets_sold || 0))
       .slice(0, 6);
   }, [events]);
 
@@ -358,22 +366,6 @@ const Index = () => {
                 </p>
               </div>
 
-              {/* Upcoming Events Section */}
-              {upcomingEvents.length > 0 && (
-                <div className="mb-12">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-6">Upcoming Events</h3>
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {upcomingEvents.map((event) => (
-                      <EventCard
-                        key={event.id}
-                        event={event}
-                        onSelect={handleEventSelect}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Search and Filters */}
               <SearchAndFilters
                 onSearch={setSearchQuery}
@@ -387,7 +379,41 @@ const Index = () => {
                 dateFilter={dateFilter}
                 categoryFilter={categoryFilter}
               />
-              
+
+              {/* Upcoming Events Section (Next 24 hours) */}
+              {upcomingEvents.length > 0 && (
+                <div className="mb-12">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-6">Upcoming Events (Next 24 Hours)</h3>
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {upcomingEvents.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        onSelect={handleEventSelect}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Most Popular Events Section */}
+              {popularEvents.length > 0 && (
+                <div className="mb-12">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-6">Most Popular Events</h3>
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {popularEvents.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        onSelect={handleEventSelect}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* More Events Section */}
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">More Events</h3>
               {isLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -413,19 +439,15 @@ const Index = () => {
                   </Button>
                 </div>
               ) : (
-                <>
-                  {/* Results count removed per user request */}
-                  
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredAndSortedEvents.map((event) => (
-                      <EventCard
-                        key={event.id}
-                        event={event}
-                        onSelect={handleEventSelect}
-                      />
-                    ))}
-                  </div>
-                </>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredAndSortedEvents.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      onSelect={handleEventSelect}
+                    />
+                  ))}
+                </div>
               )}
 
               {/* Stats Section */}
